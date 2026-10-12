@@ -588,11 +588,10 @@ function blocchiGiorno(s){
         out.push({id:"diario",t:"17:50",k:"tesi",b:"Diario di stage (5')",x:"Tre righe, negli strumenti dell'azienda."});
       }
       if((d===1||d===2||d===4) && !(S.dopoStage==="fine" && s>fineStage())) out.push({id:"sera",t:"19:30",k:"tesi",b:"Scrittura tesi (45')",x:`${tt}. Scrivi senza correggere: si rivede il sabato.`});
-      if(d===3) out.push({id:"casa",t:"19:30",k:"casa",b:"Casa e spesa",x:"Turno di pulizie della settimana."});
+      if(d===3) out.push({id:"libera-mer",t:"Sera",k:"libero",b:"Sera libera",x:"Niente tesi."});
       if(d===5) out.push({id:"libera",t:"Sera",k:"libero",b:"Sera libera",x:"Niente tesi."});
     } else if(d===6 && !aCasa){
       out.push({id:"sab",t:"09:30",k:"tesi",b:"Tesi (3h)",x:`${tt}. Prima rileggi e sistema quello scritto in settimana, poi vai avanti.`});
-      out.push({id:"pulizie",t:"15:00",k:"casa",b:"Pulizie di casa",x:"Turno a rotazione: vedi la scheda Casa."});
     } else if(d===0 && !aCasa) out.push({id:"checkin",t:"18:00",k:"tesi",b:"Check-in settimanale (10')",x:"Apri Piano: guarda la prossima tappa della tesi e quanto manca."});
     else if(aCasa) out.push({id:"viaggio",t:"—",k:"ascolto",b:d===6?"Weekend a casa":"Viaggio di ritorno (3h)",x:"In macchina: un paper o un podcast. La sessione del sabato si recupera in settimana."});
     return out;
@@ -609,7 +608,7 @@ function blocchiGiorno(s){
       else if(linU && d===2) out.push({id:"sera",t:"19:30",k:"studio",b:"Lingue (45')",x:`${linTxt}. Scrivi e parla a voce alta.`});
       else if(d===1||d===2||d===4) out.push({id:"sera",t:"19:30",k:"studio",b:ripasso?"Sessione di ripasso (45')":"Sessione attiva (45')",
         x:ripasso?`${focTxt}: rifai la mappa a memoria, poi confronta. Chiudi con 5 domande dall'Assistente.`:`Mappa di ${mapTxt}. 2 pomodori da 20', in piedi o a voce alta.`});
-      if(d===3) out.push({id:"casa",t:"19:30",k:"casa",b:"Casa e spesa",x:"Il tuo turno di pulizie della settimana, con le cuffie (ascolto leggero)."});
+      if(d===3) out.push({id:"libera-mer",t:"Sera",k:"libero",b:"Sera libera o recupero",x:"Se sei in pari, riposa. Se sei indietro, 30' sul blocco in ritardo."});
       if(d===5) out.push(S.weekendCasa?.[addDays(s,1)]
         ? {id:"viaggio-a",t:"18:30",k:"ascolto",b:"Viaggio verso casa (3h)",x:`In macchina: ${ascTxt}. Ultima mezz'ora: giro del palazzo a voce alta.`}
         : {id:"libera",t:"Sera",k:"libero",b:"Sera libera",x:"Niente studio. Serve a reggere fino a febbraio."});
@@ -622,7 +621,6 @@ function blocchiGiorno(s){
   } else if(d===6){
     out.push({id:"sab",t:"09:30",k:"studio",b:ripasso?"Ripasso lungo (3h)":"Mappe e palazzo (3h)",
       x:ripasso?`${focTxt}: simulazione d'esame con l'Assistente, poi riempi i buchi.`:`Chiudi le mappe della settimana (${mapTxt}), poi colloca i concetti chiave nel palazzo.`});
-    out.push({id:"pulizie",t:"15:00",k:"casa",b:"Pulizie di casa",x:"Turno a rotazione: vedi la scheda Casa."});
   } else {
     out.push({id:"dom",t:"10:00",k:"studio",b:"Giro del palazzo + quiz (2h)",x:"Percorri il palazzo di tutte le materie fatte finora. Quello che non torna, va in lista per lunedì."});
     if(exDomani) out.push({id:"vigilia",t:"Sera",k:"studio",b:`Vigilia: ${esc(exDomani.breve)}`,x:"Ripasso leggero, solo mappe e palazzo. Prepara documenti e viaggio per Milano, e vai a letto presto."});
@@ -662,7 +660,7 @@ function ripRiga(u){const r=S.rip[u.id], m=materia(u.s), rit=diff(r.next,OGGI);
     <div class="small muted">${r.n+1}° ripasso · ${rit>0?`<span class="late">in ritardo di ${rit} ${rit===1?"giorno":"giorni"}</span>`:"oggi"} · esame ${fmtD(m.esame)}</div></div>
     <div class="row"><button class="btn ghost sm" data-rip="${u.id}" data-voto="0">Non ricordavo</button><button class="btn ghost sm" data-rip="${u.id}" data-voto="1">A fatica</button><button class="btn sm" data-rip="${u.id}" data-voto="2">Bene</button></div></div>`}
 /* ============ VISTE ============ */
-const VISTE=[["percorso","Percorso"],["oggi","Oggi"],["piano","Piano"],["materie","Materie"],["aiuto","Studio"],["casa","Casa"],["metodo","Metodo"]];
+const VISTE=[["percorso","Percorso"],["oggi","Oggi"],["piano","Piano"],["materie","Materie"],["aiuto","Studio"],["casa","Altro"],["metodo","Metodo"]];
 const IN_NAV=["percorso","oggi","piano","materie","aiuto","casa"];
 VISTE.push(["slide","Slide"]);
 let vista="oggi";
@@ -719,10 +717,9 @@ function vOggi(){
 function prepCard(){
   const L=[["p1","Scansiona i materiali stampati della settimana 1 (Go to Market) con il telefono e trasformali in audio"],
     ["p2","Prova la lettura vocale del telefono su Kindle e su Egea digitabook (vedi Metodo)"],
-    ["p3","Scegli il palazzo della memoria e scrivi le sue tappe nella scheda Casa"],
+    ["p3","Scegli il palazzo della memoria e scrivi le sue tappe nella scheda Altro"],
     ["p4","Controlla orari e iscrizione della palestra a Fiorano"],
     ["p5","Chiedi in azienda come chiedere i 6 giorni d'esame e se c'è una chiusura a Natale"],
-    ["p6","Concorda con le coinquiline i turni di pulizia"],
     ["p7","Recupera i materiali di English Seminars"],
     ["p8","Francese: procurati un dizionario cartaceo italiano-francese (ammesso allo scritto)"],
     ["p9","Iscriviti all'esame di francese del 16 dicembre su Agenda yoU@B"]];
@@ -862,7 +859,7 @@ function vMetodo(){
   <div class="steps" style="margin-top:14px">
     <div class="step"><div><b>Ascolta (A)</b><p class="small muted">Il testo diventa audio, e lo ascolti in palestra, nel tragitto, mentre pulisci. Velocità 1,2–1,4×. Una pagina accademica in inglese dura circa 2 minuti: un blocco da 30 pagine è un'ora di ascolto. Non devi capire tutto: ti serve per sapere di cosa parla il capitolo.</p></div></div>
     <div class="step"><div><b>Mappa (M)</b><p class="small muted">La sera dopo, 2 pomodori da 20'. Prima scrivi a memoria lo scheletro del capitolo, poi apri il testo solo per controllare titoli, grafici e definizioni. Così il testo lo consulti, non lo leggi, e non ti addormenti. L'Assistente può prepararti lo schema da incollare in MindMeister o Xmind.</p></div></div>
-    <div class="step"><div><b>Palazzo (P)</b><p class="small muted">Liste, framework e nomi (es. le leve del category management, i casi Gucci/Bottega Veneta/Ferrari) vanno nelle tappe del palazzo. Un palazzo diverso per materia, o un'ala diversa. Le tappe le scrivi nella scheda Casa; l'Assistente propone le immagini.</p></div></div>
+    <div class="step"><div><b>Palazzo (P)</b><p class="small muted">Liste, framework e nomi (es. le leve del category management, i casi Gucci/Bottega Veneta/Ferrari) vanno nelle tappe del palazzo. Un palazzo diverso per materia, o un'ala diversa. Le tappe le scrivi nella scheda Altro; l'Assistente propone le immagini.</p></div></div>
     <div class="step"><div><b>Ripassa (R)</b><p class="small muted">Da quando fai la mappa, l'app ti programma i ripassi: dopo circa 1, 3, 7, 14 e 30 giorni. Se non ricordavi tornano prima, se ricordavi bene si allontanano, e l'ultimo cade sempre 2 giorni prima dell'esame. Ogni ripasso dura circa 5 minuti: giro del palazzo a mente e 2 domande a voce. Al terzo ripasso andato bene il blocco diventa R da solo.</p></div></div>
   </div>
   <h2>Trasformare i materiali in audio</h2>
@@ -902,9 +899,9 @@ function vMetodo(){
   <div class="tbl"><table><thead><tr><th></th><th>Mattina</th><th>Giorno</th><th>Sera</th></tr></thead><tbody>
     <tr><td><b>Lun · Gio</b></td><td>Palestra 6:30 con audio</td><td>Tragitti con audio · stage 9–18</td><td>45' di mappa</td></tr>
     <tr><td><b>Mar</b></td><td>Palestra con audio</td><td>Come sopra</td><td>Lingue 45' nelle settimane che le prevedono, se no mappa</td></tr>
-    <tr><td><b>Mer</b></td><td>Palestra con audio</td><td>Come sopra</td><td>Casa e spesa, ascolto leggero</td></tr>
+    <tr><td><b>Mer</b></td><td>Palestra con audio</td><td>Come sopra</td><td>Libera o recupero</td></tr>
     <tr><td><b>Ven</b></td><td>Palestra con audio</td><td>Come sopra</td><td>Libera, oppure viaggio verso casa (3h di ascolto)</td></tr>
-    <tr><td><b>Sab</b></td><td>3h mappe e palazzo</td><td>Pulizie a turno</td><td>Libera</td></tr>
+    <tr><td><b>Sab</b></td><td>3h mappe e palazzo</td><td>Libera</td><td>Libera</td></tr>
     <tr><td><b>Dom</b></td><td>2h giro del palazzo + quiz</td><td>Libera</td><td>Check-in 10'</td></tr>
   </tbody></table></div>
   <p class="small muted" style="margin-top:8px">Circa 6 ore di ascolto e 7 di studio attivo a settimana. Le pagine sono circa 1.200 in tutto, Francese e English esclusi.</p>`;
@@ -988,19 +985,13 @@ function parla(t){
 
 /* ============ CASA E PALESTRA ============ */
 function vCasa(){
-  const w=Math.max(settimana(OGGI),0), lun=w?lunediDi(w):addDays(W1,-7), wk="w"+w, fatte=S.casa[wk]||{};
+  const w=Math.max(settimana(OGGI),0), lun=w?lunediDi(w):addDays(W1,-7), wk="w"+w;
   const giorni=[...Array(7)].map((_,i)=>addDays(lun,i));
   const nGym=giorni.filter(g=>S.palestra[g]).length;
   let h=`<h2>Palestra</h2><div class="card"><div class="row" style="justify-content:space-between"><b class="num">${nGym} di ${S.palestraTarget} questa settimana</b>
     <label class="small muted row" style="gap:6px">Obiettivo <input type="number" id="gym-t" min="1" max="7" value="${S.palestraTarget}" style="width:70px"></label></div>
     <div class="gymdays">${giorni.map(g=>`<button class="tick" data-gym="${g}" aria-pressed="${!!S.palestra[g]}" aria-label="Palestra ${fmtLong(g)}">${GIORNI[parse(g).getDay()].slice(0,2)}</button>`).join("")}</div>
     <p class="small muted" style="margin-top:8px">Mattina presto, così la sera resta per lo studio. Ogni allenamento è un'ora di ascolto.</p></div>`;
-  h+=`<h2>Pulizie · settimana ${w||0}</h2><div class="card stack">`;
-  S.faccende.forEach((f,i)=>{const chi=S.coinq[(i+w)%S.coinq.length];
-    h+=`<div class="row" style="flex-wrap:nowrap;justify-content:space-between"><div><b>${esc(f)}</b><div class="small muted">tocca a: ${esc(chi)}</div></div><button class="tick" data-casa="${i}" aria-pressed="${!!fatte[i]}" aria-label="${esc(f)} fatto">${fatte[i]?"✓":""}</button></div>`});
-  h+=`<p class="small muted">I turni ruotano ogni lunedì.</p>
-    <label class="f">Coinquiline (separate da virgola)<input type="text" id="coinq" value="${esc(S.coinq.join(", "))}"></label>
-    <label class="f">Faccende (separate da virgola)<input type="text" id="facc" value="${esc(S.faccende.join(", "))}"></label></div>`;
   h+=`<h2>Palazzi della memoria</h2><p class="small muted">Un luogo che conosci a memoria, percorso sempre nello stesso ordine. Un palazzo per materia, o un'ala per materia.</p><div class="stack" style="margin-top:10px">`;
   S.palazzi.forEach((p,i)=>{h+=`<div class="card stack"><input type="text" id="pal-n-${i}" data-paln="${i}" value="${esc(p.nome)}" aria-label="Nome del palazzo">
     <label class="f">Tappe, una per riga<textarea id="pal-l-${i}" data-pall="${i}" style="min-height:120px">${esc(p.loci.join("\n"))}</textarea></label>
@@ -1175,7 +1166,6 @@ function xpTotale(){
   x+=vals(S.tesi).filter(Boolean).length*50 + vals(S.stageFatti).filter(Boolean).length*30;
   x+=Object.keys(S.superati||{}).length*200;
   x+=Object.keys(S.palestra||{}).length*10;
-  for(const w of vals(S.casa)) x+=vals(w).filter(Boolean).length*5;
   x+=vals(S.dadi).reduce((a,n)=>a+n,0)*5;
   x+=vals(S.rip).reduce((a,r)=>a+(r.n||0),0)*5;
   return x;
@@ -1205,7 +1195,6 @@ const MEDAGLIE=[
   ["Una settimana di fila","7 giorni consecutivi",c=>c.serie>=7],
   ["Inarrestabile","21 giorni consecutivi",c=>c.serie>=21],
   ["Atleta","Obiettivo palestra raggiunto in una settimana",c=>c.gymWeek],
-  ["Casa splendente","10 faccende fatte",c=>c.faccende>=10],
   ["Avanti tutta","3 caselle avanti al piano",c=>c.avanti>=3],
   ["Dado fortunato","Hai tirato un 6",c=>c.sei],
   ["Memoria d'acciaio","50 ripassi fatti",c=>vals(S.rip).reduce((a,r)=>a+(r.n||0),0)>=50],
@@ -1262,7 +1251,7 @@ function vPercorso(){
   const on=MEDAGLIE.filter(m=>m[2](K)).length;
   h+=`<h2>Medaglie · ${on}/${MEDAGLIE.length}</h2><div class="badges">${MEDAGLIE.map(([t,d,f])=>`<div class="badge ${f(K)?"on":""}"><b>${esc(t)}</b><span class="small muted">${esc(d)}</span></div>`).join("")}</div>
   <h2>Come si fanno punti</h2><div class="card small stack">
-    <p>Blocco della giornata <b>+10</b> · fase di un blocco di studio <b>+15</b> · tappa della tesi <b>+50</b> · tappa dello stage <b>+30</b> · esame superato <b>+200</b> · palestra <b>+10</b> · faccenda di casa <b>+5</b> · dado <b>+5 per punto</b> · ripasso <b>+5</b></p>
+    <p>Blocco della giornata <b>+10</b> · fase di un blocco di studio <b>+15</b> · tappa della tesi <b>+50</b> · tappa dello stage <b>+30</b> · esame superato <b>+200</b> · palestra <b>+10</b> · dado <b>+5 per punto</b> · ripasso <b>+5</b></p>
     <p class="muted">Livelli: ${TITOLI.map(t=>`${t[0]} ${t[1]}`).join(" · ")}</p></div>`;
   return h;
 }
@@ -1316,7 +1305,6 @@ document.addEventListener("click",async e=>{
   if(d.wcasa){S.weekendCasa=S.weekendCasa||{}; if(S.weekendCasa[d.wcasa]) delete S.weekendCasa[d.wcasa]; else S.weekendCasa[d.wcasa]=true; salva(); render(); return}
   if(d.natale){S.natale=d.natale; salva(); render(); return}
   if(d.gym){S.palestra[d.gym]=!S.palestra[d.gym]; if(!S.palestra[d.gym]) delete S.palestra[d.gym]; salva(); render(); return}
-  if(d.casa){const wk="w"+Math.max(settimana(OGGI),0); S.casa[wk]=S.casa[wk]||{}; S.casa[wk][d.casa]=!S.casa[wk][d.casa]; salva(); render(); return}
   if(d.paldel){S.palazzi.splice(+d.paldel,1); salva(); render(); return}
   if(d.del){S.extra=S.extra.filter(u=>u.id!==d.del); delete S.fasi[d.del]; salva(); render(); toast("Materiale tolto"); return}
   if(d.ai){chiedi(d.ai); return}
@@ -1348,8 +1336,6 @@ document.addEventListener("submit",e=>{
 document.addEventListener("change",e=>{
   const t=e.target;
   if(t.id==="gym-t"){S.palestraTarget=Math.min(7,Math.max(1,+t.value||4)); salva(); render()}
-  if(t.id==="coinq"){const v=t.value.split(",").map(x=>x.trim()).filter(Boolean); if(v.length){S.coinq=v; salva(); render()}}
-  if(t.id==="facc"){const v=t.value.split(",").map(x=>x.trim()).filter(Boolean); if(v.length){S.faccende=v; salva(); render()}}
   if(t.dataset.paln){S.palazzi[+t.dataset.paln].nome=t.value.trim()||"Palazzo"; salva()}
   if(t.dataset.pall){S.palazzi[+t.dataset.pall].loci=t.value.split("\n").map(x=>x.trim()).filter(Boolean); salva()}
   if(t.id==="note"){S.note=t.value; salva()}
