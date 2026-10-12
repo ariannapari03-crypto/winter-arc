@@ -1116,11 +1116,11 @@ function vPercorso(){
   const pts=C.map((_,i)=>{const [r,c]=pos(i);return `${(c+.5)/cols*100},${(r+.5)/rows*100}`}).join(" ");
   let h=`<h2>Il percorso fino alla laurea</h2>
   <div class="stats"><div><b class="num">${pawn}</b><span>casella su ${n-1}</span></div><div><b class="num" style="color:${K.avanti>=0?"var(--ok)":"var(--bad)"}">${K.avanti>0?"+":""}${K.avanti}</b><span>${K.avanti>=0?"avanti":"indietro"} rispetto al piano</span></div><div><b class="num">${K.superati}/6</b><span>esami superati</span></div></div>
-  <p class="small muted" style="margin-top:12px">Ogni tappa chiusa è una casella. «OGGI» è dove vuole il piano.</p>
+  <p class="small muted" style="margin-top:12px">Ogni casella ha una scadenza: un blocco di studio si chiude quando arriva al palazzo. «OGGI» è dove vuole il piano.</p>
   <div class="board" style="grid-template-rows:repeat(${rows},auto)"><svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" vector-effect="non-scaling-stroke"/></svg>`;
   C.forEach((c,i)=>{const [r,co]=pos(i);
     h+=`<button class="cell k-${c.k} ${c.done&&c.k!=="start"?"done":""} ${i===ghost&&ghost!==pawn?"ghost":""} ${selCasella===i?"sel":""}" style="grid-row:${r+1};grid-column:${co+1};${c.s?sc(c.s):c.k==="tesi"?"--sc:var(--accent)":c.k==="stage"?"--sc:var(--muted)":""}" data-cas="${i}" aria-label="Casella ${i}: ${esc(c.t)}">
-      <span class="no num">${i}</span><span class="lb">${esc(c.lb)}</span><span class="dt">${c.k==="laurea"?"LUGLIO":c.k==="esame"?"ESAME "+fmtD(c.due).toUpperCase():fmtD(c.due).toUpperCase()}</span>${i===pawn?PEDINA:""}</button>`});
+      <span class="no num">${i}</span><span class="lb">${esc(c.lb)}</span><span class="dt">${c.k==="laurea"?"LUGLIO":c.k==="start"?fmtD(c.due).toUpperCase():c.k==="esame"?"ESAME "+fmtD(c.due).toUpperCase():"ENTRO "+fmtD(c.due).toUpperCase()}</span>${i===pawn?PEDINA:""}</button>`});
   h+=`</div>`;
   if(selCasella!==null && C[selCasella]) h+=schedaCasella(C[selCasella]);
   const oggiOk=vals(S.fatti?.[OGGI]).some(Boolean), dado=S.dadi?.[OGGI];
