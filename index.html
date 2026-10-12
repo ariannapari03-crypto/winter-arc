@@ -1,0 +1,1339 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Winter arc</title>
+<meta name="theme-color" content="#090b0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Winter arc">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}img{max-width:100%}</style>
+<script>// Fuori da claude.ai: stessa interfaccia che l'app usa dentro gli artifact (claude.use),
+// ma i dati restano nel telefono e Claude si chiama tramite /api/claude.
+(function () {
+  if (window.claude) return;
+  const CHIAVE_PW = "winter-arc-password";
+  const leggiPw = () => { try { return localStorage.getItem(CHIAVE_PW); } catch (e) { return null; } };
+  const password = () => {
+    let p = leggiPw();
+    if (!p) {
+      p = window.prompt("Password dell'app (quella che hai messo in APP_PASSWORD su Vercel)");
+      if (p) try { localStorage.setItem(CHIAVE_PW, p); } catch (e) {}
+    }
+    return p;
+  };
+  const inBase64 = (blob) => new Promise((ok, ko) => {
+    const r = new FileReader();
+    r.onload = () => ok(String(r.result).split(",")[1]);
+    r.onerror = ko;
+    r.readAsDataURL(blob);
+  });
+
+  async function chiama(input, opts = {}) {
+    const prompt = typeof input === "string" ? input : input.map((m) => m.content).join("\n\n");
+    const images = opts.images
+      ? await Promise.all([...opts.images].map(async (b) => ({ media_type: b.type || "image/jpeg", data: await inBase64(b) })))
+      : [];
+    const pw = password();
+    if (!pw) throw { code: "password" };
+    let r;
+    try {
+      r = await fetch("/api/claude", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-app-password": pw },
+        body: JSON.stringify({ prompt, images, tier: opts.modelTier || "default" }),
+        signal: opts.signal,
+      });
+    } catch (e) {
+      throw { code: e && e.name === "AbortError" ? "cancelled" : "upstream_error" };
+    }
+    const j = await r.json().catch(() => ({ code: "upstream_error" }));
+    if (r.status === 401) { try { localStorage.removeItem(CHIAVE_PW); } catch (e) {} throw { code: "password" }; }
+    if (!r.ok) throw { code: j.code || "upstream_error", message: j.message };
+    if (j.code === "refusal") throw { code: "refusal" };
+    if (opts.onText) opts.onText({ text: j.text, delta: j.text });
+    return { text: j.text, truncated: !!j.truncated };
+  }
+
+  const sample = (input, opts) => chiama(input, opts);
+  sample.json = async (input, opts) => {
+    const { text, truncated } = await chiama(input, opts);
+    if (truncated) throw { code: "invalid_json", text };
+    const t = text.trim();
+    const a = t.search(/[\[{]/), b = Math.max(t.lastIndexOf("}"), t.lastIndexOf("]"));
+    const prove = [t, (t.match(/```(?:json)?\s*([\s\S]*?)```/) || [])[1], a >= 0 && b > a ? t.slice(a, b + 1) : null];
+    for (const x of prove) { if (!x) continue; try { return JSON.parse(x); } catch (e) {} }
+    throw { code: "invalid_json", text };
+  };
+  sample.limits = async () => ({ maxPromptBytes: 262144, images: { maxCount: 4, maxInputBytes: 5e6, mediaTypes: ["image/jpeg", "image/png", "image/webp"] } });
+
+  const downloads = {
+    save: async ({ filename, data }) => {
+      const blob = data instanceof Blob ? data : new Blob([data]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      return { saved: true };
+    },
+  };
+
+  window.claude = { use: async (n) => (n === "sample" ? sample : n === "downloads" ? downloads : null) };
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+  if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+})();
+</script>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500;700&display=swap">
+<style>
+/* Layout: una colonna da telefono, navigazione in basso. Winter arc: notte fredda come base, ghiaccio come accento, oro solo per i traguardi; condensato pesante per i numeri, corsivo serif come contrappunto elegante. */
+:root{
+  --bg:#090b0f; --surface:#11151b; --ink:#eef2f6; --muted:#8994a1; --line:#222a34;
+  --sand:#1a212a; --sand-ink:#dfe8f1; --accent:#a8d2ff; --accent-ink:#06121f; --gold:#d9b871;
+  --ok:#7fd6a8; --warn:#e8c46a; --bad:#ff8a8a; --glow:rgba(168,210,255,.10);
+  --c-fr:#b9a3ff; --c-tm:#7fb8ff; --c-eb:#ff9cc0; --c-b2b:#7fd6a8; --c-en:#e8cf7a; --c-lux:#ebab88;
+  --f-display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --f-serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --f-body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:10px; --on-sc:#090b0f; color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#0b0f14; --muted:#5a6572; --line:#dbe1e8;
+  --sand:#e4e9ef; --sand-ink:#0b0f14; --accent:#1d5a94; --accent-ink:#ffffff; --gold:#946f1f;
+  --ok:#23784e; --warn:#9a6a10; --bad:#b23a3a; --glow:rgba(29,90,148,.08);
+  --c-fr:#6b4fb0; --c-tm:#22609a; --c-eb:#b8456f; --c-b2b:#2f7d55; --c-en:#80661a; --c-lux:#9b4d2e;
+  --on-sc:#ffffff; color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#0b0f14; --muted:#5a6572; --line:#dbe1e8;
+  --sand:#e4e9ef; --sand-ink:#0b0f14; --accent:#1d5a94; --accent-ink:#ffffff; --gold:#946f1f;
+  --ok:#23784e; --warn:#9a6a10; --bad:#b23a3a; --glow:rgba(29,90,148,.08);
+  --c-fr:#6b4fb0; --c-tm:#22609a; --c-eb:#b8456f; --c-b2b:#2f7d55; --c-en:#80661a; --c-lux:#9b4d2e;
+  --on-sc:#ffffff; color-scheme:light}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45;padding-inline:16px;padding-block:0 96px}
+.wrap{max-width:720px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);font-weight:800;letter-spacing:.01em;text-wrap:balance;margin:0;line-height:1.05;text-transform:uppercase}
+h1{font-size:2.2rem}
+h2{font-size:1.5rem;margin-block:28px 10px}
+h3{font-size:1.15rem}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:.86rem}
+.num{font-variant-numeric:tabular-nums}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.stack{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+header.top{padding-block:20px 6px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.sync{font-size:.78rem;color:var(--muted)}
+
+/* esame più vicino */
+.next{background:var(--ink);color:var(--bg);border-radius:var(--r);padding:16px;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-top:12px}
+.next .big{font-family:var(--f-display);font-size:3.2rem;font-weight:800;line-height:.9}
+.next .big small{display:block;font-size:.9rem;letter-spacing:.08em}
+.strip{display:flex;gap:6px;overflow-x:auto;padding-block:10px 2px}
+.chip{flex:0 0 auto;border-radius:10px;background:var(--sand);color:var(--sand-ink);padding:6px 10px;font-family:var(--f-display);font-weight:600;font-size:1rem;letter-spacing:.02em;border-left:5px solid var(--sc,var(--accent))}
+.chip.past{opacity:.45}
+
+/* blocchi della giornata */
+.day{display:flex;flex-direction:column;gap:8px}
+.blk{display:grid;grid-template-columns:66px 1fr auto;gap:10px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
+.blk .t{font-family:var(--f-display);font-weight:600;font-size:1.05rem;line-height:1.1;color:var(--muted)}
+.blk .w{min-width:0}
+.blk .w b{display:block}
+.blk.kind-work{background:transparent;border-style:dashed}
+.blk.kind-exam{border:2px solid var(--bad)}
+.tick{flex:0 0 auto;width:30px;height:30px;border-radius:8px;border:2px solid var(--line);background:transparent;display:grid;place-items:center;font-weight:700}
+.tick[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#fff}
+.tag{display:inline-block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--sc);margin-right:6px;vertical-align:baseline}
+
+/* unità */
+.unit{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.unit:first-child{border-top:0}
+.unit .meta{font-size:.8rem;color:var(--muted)}
+.phases{display:flex;gap:4px}
+.ph{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--line);background:transparent;font-size:.72rem;font-weight:700;color:var(--muted)}
+.ph.on{background:var(--sc);border-color:var(--sc);color:var(--on-sc)}
+.late{color:var(--bad);font-weight:700}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.subj{border-left:6px solid var(--sc)}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;background:var(--lc);vertical-align:-1px}
+
+/* settimane */
+.wk{display:grid;grid-template-columns:78px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.wk.now{background:color-mix(in srgb,var(--accent) 10%,transparent);border-radius:var(--r);padding-inline:10px;border-top-color:transparent}
+.wk .d{font-family:var(--f-display);font-weight:600;font-size:1.05rem;line-height:1.1}
+.wk .items{min-width:0;display:flex;flex-direction:column;gap:3px;font-size:.92rem}
+
+/* metodo */
+.steps{counter-reset:s;display:flex;flex-direction:column;gap:12px}
+.step{display:grid;grid-template-columns:40px 1fr;gap:12px}
+.step::before{counter-increment:s;content:counter(s);font-family:var(--f-display);font-weight:800;font-size:1.6rem;width:40px;height:40px;border-radius:10px;background:var(--sand);color:var(--sand-ink);display:grid;place-items:center}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+/* form */
+.btn{border:0;border-radius:10px;background:var(--accent);color:var(--accent-ink);padding:10px 14px;font-weight:700}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.sm{padding:7px 11px;font-size:.85rem}
+textarea,input[type=text],input[type=number],select{width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:140px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted)}
+.out{white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;min-height:60px;font-size:.95rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:460px){.grid2{grid-template-columns:1fr}}
+
+/* navigazione */
+nav.bot{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));z-index:5}
+nav.bot .in{display:flex;gap:2px;max-width:720px;width:100%;justify-content:space-between}
+nav.bot button{flex:1;border:0;background:transparent;padding:8px 2px;border-radius:10px;font-family:var(--f-display);font-weight:600;font-size:.95rem;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+nav.bot button[aria-current="page"]{background:var(--sand);color:var(--sand-ink)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:.88rem;z-index:6}
+@media (prefers-reduced-motion:no-preference){.blk,.card{transition:background .15s}}
+
+/* gioco: livello, percorso a caselle, medaglie */
+.lvl{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;width:100%;text-align:left}
+.lvl .n{font-family:var(--f-display);font-weight:800;font-size:1.6rem;line-height:1;background:var(--accent);color:var(--accent-ink);border-radius:10px;width:44px;height:44px;display:grid;place-items:center}
+.lvl .tt{font-family:var(--f-display);font-weight:600;font-size:1.05rem;text-transform:uppercase;letter-spacing:.02em;line-height:1.1}
+.xpbar{height:7px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:4px}
+.xpbar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s}
+.streak{text-align:center;font-family:var(--f-display);font-weight:800;font-size:1.4rem;line-height:1}
+.streak small{display:block;font-family:var(--f-body);font-weight:400;font-size:.68rem;color:var(--muted)}
+.board{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px}
+.board svg.path{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.board svg.path polyline{fill:none;stroke:var(--sand);stroke-width:10;stroke-linecap:round;stroke-linejoin:round}
+.cell{position:relative;aspect-ratio:1;border-radius:12px;border:2px solid var(--sc,var(--line));background:var(--surface);display:flex;flex-direction:column;justify-content:space-between;padding:5px 6px;min-width:0;text-align:left;color:var(--ink);overflow:hidden}
+.cell .no{font-family:var(--f-display);font-weight:800;font-size:1rem;line-height:1}
+.cell .lb{font-family:var(--f-display);font-weight:600;font-size:.72rem;line-height:1.05;text-transform:uppercase;letter-spacing:.02em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.cell .dt{font-size:.62rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.cell.done{background:var(--sc,var(--accent));color:var(--on-sc)}
+.cell.done .dt{color:var(--on-sc);opacity:.85}
+.cell.k-esame{background:var(--ink);color:var(--bg);border-color:var(--sc)}
+.cell.k-esame .dt{color:var(--bg);opacity:.75}
+.cell.k-esame.done{background:var(--sc);color:var(--on-sc)}
+.cell.k-laurea,.cell.k-start{background:var(--sand);color:var(--sand-ink);border-color:var(--sand-ink)}
+.cell.k-laurea .dt,.cell.k-start .dt{color:var(--sand-ink)}
+.cell.sel{outline:3px solid var(--accent);outline-offset:2px}
+.cell.ghost::after{content:"OGGI";position:absolute;right:4px;top:4px;font-size:.55rem;font-weight:700;letter-spacing:.06em;padding:1px 4px;border-radius:4px;background:var(--bg);color:var(--ink);border:1px dashed var(--ink)}
+.pawn{position:absolute;right:3px;bottom:3px;width:46%;max-width:34px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+@media (prefers-reduced-motion:no-preference){.pawn{animation:hop 1.6s ease-in-out infinite}@keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}}
+.sheet{position:sticky;bottom:84px;z-index:3;margin-top:12px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.badge{border:1.5px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.badge b{font-family:var(--f-display);font-weight:600;text-transform:uppercase;letter-spacing:.02em}
+.badge.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.badge:not(.on){opacity:.55}
+.die{width:64px;height:64px;border-radius:14px;border:2px solid var(--ink);background:var(--surface);font-family:var(--f-display);font-weight:800;font-size:2.2rem;display:grid;place-items:center;color:var(--ink)}
+.die:disabled{opacity:.5}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stats div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.stats b{display:block;font-family:var(--f-display);font-weight:800;font-size:1.5rem;line-height:1}
+.stats span{font-size:.72rem;color:var(--muted)}
+.lvlup{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(0,0,0,.45);padding:16px}
+.lvlup .box{background:var(--surface);color:var(--ink);border-radius:18px;padding:24px;text-align:center;max-width:340px;width:100%}
+.lvlup .box .big{font-family:var(--f-display);font-weight:800;font-size:4rem;line-height:1;color:var(--accent)}
+/* ---- winter arc ---- */
+body{margin:0;background:radial-gradient(120% 50% at 50% 0%,var(--glow),transparent 60%) no-repeat,var(--bg);letter-spacing:.005em}
+h1{font-size:clamp(2.8rem,13vw,4.2rem);font-weight:900;line-height:.86;letter-spacing:-.005em}
+h1 em{font-family:var(--f-serif);font-weight:400;font-style:italic;text-transform:none;letter-spacing:0;color:var(--accent)}
+h2{font-size:1.35rem;letter-spacing:.06em;font-weight:800}
+h3{letter-spacing:.03em}
+header.top{padding-block:28px 4px;align-items:flex-start}
+#oggiLabel{text-transform:uppercase;letter-spacing:.18em;font-size:.7rem;font-weight:700;margin-bottom:6px}
+.motto{font-family:var(--f-serif);font-style:italic;font-size:1.2rem;color:var(--muted);margin-top:8px}
+.sync{font-size:.68rem;text-transform:uppercase;letter-spacing:.12em}
+.next{background:var(--surface);color:var(--ink);border:1px solid var(--line);position:relative;overflow:hidden}
+.next::after{content:"";position:absolute;inset:auto -20% -60% 40%;height:140%;background:radial-gradient(closest-side,var(--glow),transparent);pointer-events:none}
+.next .big{color:var(--accent);font-size:3.6rem;font-weight:900}
+.next .big small{color:var(--muted);letter-spacing:.2em;text-transform:uppercase;font-size:.7rem;font-family:var(--f-body);font-weight:700}
+.next p.small{text-transform:uppercase;letter-spacing:.14em;font-size:.68rem;font-weight:700}
+.chip{background:transparent;border:1px solid var(--line);border-left:4px solid var(--sc,var(--accent));color:var(--ink);border-radius:8px}
+.blk{border-radius:var(--r)}
+.blk .t{color:var(--accent)}
+.tick{border-radius:50%;border-width:1.5px}
+.tick[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn{border-radius:8px;text-transform:uppercase;letter-spacing:.08em;font-size:.82rem;font-weight:700;padding:11px 16px}
+.btn.ghost{border-color:var(--line)}
+.btn.sm{padding:7px 11px;font-size:.72rem}
+.tag{border-radius:6px;letter-spacing:.12em}
+.card{border-radius:var(--r)}
+nav.bot{background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+nav.bot button{letter-spacing:.08em;font-size:.9rem}
+nav.bot button[aria-current="page"]{background:transparent;color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);border-radius:0}
+.lvl{border-radius:var(--r)}
+.lvl .n{background:transparent;color:var(--gold);border:1.5px solid var(--gold);font-weight:900}
+.lvl .tt{letter-spacing:.06em}
+.xpbar i{background:linear-gradient(90deg,var(--accent),var(--gold))}
+.streak{color:var(--ink)}
+.badge.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 10%,transparent)}
+.badge.on b{color:var(--gold)}
+.lvlup .box .big{color:var(--gold)}
+.cell{border-width:1.5px;border-radius:8px}
+.cell.k-esame{background:var(--ink);color:var(--bg)}
+.cell.k-laurea{background:transparent;border:2px solid var(--gold);color:var(--gold)}
+.cell.k-laurea .dt{color:var(--gold)}
+.cell.k-start{background:transparent;border-color:var(--muted);color:var(--muted)}
+.board svg.path polyline{stroke:var(--line)}
+.stats div{border-radius:var(--r)}
+.seg button[aria-pressed="true"]{background:var(--sand);color:var(--accent)}
+.step::before{background:transparent;border:1.5px solid var(--accent);color:var(--accent)}
+.wk.now{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.die{border-color:var(--accent);color:var(--accent);background:transparent}
+/* ---- più aria ---- */
+body{line-height:1.55}
+h2{margin-block:44px 16px}
+header.top{padding-block:32px 8px}
+.motto{margin-top:10px}
+.hero{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px}
+.hero .next{margin:0;grid-template-columns:1fr;gap:6px;padding:16px}
+.hero .next .big{font-size:3rem}
+.hero .next h3{font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero .lvl{margin:0;grid-template-columns:auto 1fr;align-items:center;padding:16px;gap:12px}
+.hero .lvl .n{width:40px;height:40px;font-size:1.4rem}
+.hero .lvl .tt{font-size:.95rem;display:block;margin-bottom:6px}
+.sync{text-align:center;margin-top:48px;opacity:.7}
+.day{gap:12px;margin-top:20px!important}
+.blk{grid-template-columns:52px 1fr auto;gap:14px;padding:16px;align-items:center}
+.blk .w b{font-weight:600;margin-bottom:2px}
+.blk .w .small{font-size:.8rem;line-height:1.45}
+.card{padding:18px}
+.fold{margin-top:28px}
+.fold summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:var(--f-display);font-weight:800;font-size:1.2rem;letter-spacing:.06em;text-transform:uppercase;padding:12px 0;border-bottom:1px solid var(--line)}
+.fold summary::-webkit-details-marker{display:none}
+.fold summary::after{content:"+";font-weight:600;color:var(--muted);margin-left:12px}
+.fold[open] summary::after{content:"–"}
+.fold summary .cnt{margin-left:auto;font-size:1rem;color:var(--muted)}
+.fold[open] > .card,.fold[open] > .legend{margin-top:12px}
+.fold-link{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;margin-top:28px;padding:14px 0;background:transparent;border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);color:var(--ink);text-align:left}
+.cell{padding:7px 8px}
+.cell .lb{font-size:.8rem}
+.stats{gap:12px}
+.stats div{padding:14px 8px}
+@media (min-width:640px){.board{grid-template-columns:repeat(4,1fr)}}
+/* ---- allineamenti per telefoni stretti (S24 FE: 384px) ---- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.hero{align-items:stretch}
+.hero .next,.hero .lvl{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:0;padding:16px;min-width:0;text-align:left}
+.hero .eyebrow{font-size:.66rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hero .big{font-family:var(--f-display);font-weight:900;font-size:3rem;line-height:1;margin-top:8px;color:var(--accent)}
+.hero .lvl .big{color:var(--gold)}
+.hero .sub{font-size:.82rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hero .sub b{color:var(--ink);font-weight:600}
+.hero .lvl .xpbar{width:100%;margin-top:12px}
+.hero .lvl .tt{font-size:.78rem;margin-top:6px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.blk{align-items:start}
+.blk .t{padding-top:2px;font-size:1.1rem}
+.blk .tick{margin-top:-2px}
+.gymdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:12px}
+.gymdays .tick{width:100%;height:auto;aspect-ratio:1;font-size:.8rem}
+nav.bot button{font-size:.88rem;letter-spacing:.06em;padding-inline:0}
+.daynav{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:8px;align-items:center;margin-top:28px;text-align:center}
+.daynav .btn{width:44px;height:44px;padding:0;font-size:1.1rem;letter-spacing:0}
+.daynav h2{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row:has(> .tick){flex-wrap:nowrap;align-items:flex-start;gap:14px}
+.row > .tick{margin-top:1px}
+@media (max-width:360px){body{padding-inline:14px}.hero{gap:8px}.hero .next,.hero .lvl{padding:14px 12px}.hero .big{font-size:2.6rem}.blk{grid-template-columns:44px 1fr auto;gap:10px;padding:14px 12px}.board{gap:8px}.stats div{padding:12px 4px}}
+canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:21}
+
+/* slide → dispensa */
+.seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;margin-top:20px}
+.seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:8px;font-family:var(--f-display);font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--sand);color:var(--sand-ink)}
+.prog{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.lez summary{cursor:pointer;list-style:none}
+.lez h4{font-family:var(--f-display);font-weight:600;font-size:1.05rem;text-transform:uppercase;letter-spacing:.02em;margin:14px 0 6px}
+.lez ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.sl{font-size:.72rem;color:var(--muted);white-space:nowrap}
+.flash{border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--bg)}
+.flash summary{cursor:pointer;font-weight:700}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.85rem}
+.chips button[aria-pressed="true"]{background:var(--sc,var(--accent));border-color:var(--sc,var(--accent));color:var(--on-sc)}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="muted small" id="oggiLabel"></p>
+      <h1>Winter <em>arc</em></h1>
+      <p class="motto" id="motto"></p>
+    </div>
+  </header>
+  <div class="hero"><div class="next" id="next"></div>
+  <button class="lvl" id="lvl" data-v="percorso" aria-label="Apri il percorso"></button></div>
+
+  <main id="view"></main>
+  <p class="sync" id="sync">Salvataggio: in avvio…</p>
+</div>
+
+<nav class="bot" aria-label="Sezioni"><div class="in" id="nav"></div></nav>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ============ DATI ============ */
+const MATERIE = [
+  {id:"fr",  nome:"French Language", breve:"Francese", esame:"2026-12-16", col:"--c-fr", lingua:true},
+  {id:"tm",  nome:"Trade Marketing & Category Management", breve:"Trade Mkt", esame:"2027-01-07", col:"--c-tm"},
+  {id:"eb",  nome:"Experience Branding & Retailing in Lifestyle Industries", breve:"Exp. Brand", esame:"2027-01-11", col:"--c-eb"},
+  {id:"b2b", nome:"B2B Marketing", breve:"B2B", esame:"2027-01-21", col:"--c-b2b"},
+  {id:"en",  nome:"English Seminars", breve:"English", esame:"2027-01-28", col:"--c-en", lingua:true},
+  {id:"lux", nome:"Luxury Companies in the Global Landscape", breve:"Luxury", esame:"2027-02-01", col:"--c-lux"},
+];
+// fonte: lista materiali (formato, pagine). a = settimana d'ascolto (1 = dal 19 ottobre)
+function blocchi(prefix, subj, fonte, fmt, tot, n, a, base){
+  const out=[], per=Math.ceil(tot/n);
+  for(let i=0;i<n;i++){const da=i*per+1, a2=Math.min(tot,(i+1)*per);
+    out.push({id:prefix+(i+1), s:subj, t:`${fonte} · ${base?base[i]:"pp. "+da+"–"+a2}`, p:a2-da+1, fmt, a:Array.isArray(a)?a[i]:a});}
+  return out;
+}
+const UNITA_BASE = [
+  ...blocchi("gtm","tm","Go to Market (Castaldo, Acconciamessa)","stampato",149,5,1),
+  ...blocchi("dl","tm","Digital Loyalty","Kindle",192,6,2,["cap. 1","cap. 2","cap. 3","cap. 4","cap. 7","cap. 8"]),
+  ...blocchi("eb","eb","Experience Branding and Retailing","Egea digitabook",120,4,3),
+  ...blocchi("b2b","b2b","B2B Reading Collection","paper stampati + Adobe DE",338,10,[3,4,4,4,4,5,5,5,5,5]),
+  {id:"lx1",s:"lux",t:"Resilience of Luxury Companies (Lojacono, Pan)",p:18,fmt:"stampato",a:6},
+  {id:"lx2",s:"lux",t:"Playing to Win · cap. 1 e 3",p:19,fmt:"stampato",a:6},
+  {id:"lx3",s:"lux",t:"Verganti (paper) + report Bain e BCG",p:12,fmt:"stampato",a:6},
+  {id:"lx4",s:"lux",t:"Casi: Bottega Veneta, Gucci, Ferrari, Kering, Zegna, Alo",p:21,fmt:"stampato",a:6},
+  ...blocchi("fl","lux","The Future of Luxury CX","ProQuest online",342,10,[6,6,7,7,7,7,8,8,8,8]),
+  {id:"lx5",s:"lux",t:"Slide, video obbligatori e letture su Blackboard (corso 20671)",p:null,fmt:"Blackboard",a:9},
+  // Francese (cod. 20372, B1 business). Livello di partenza: EsaBac C1, niente libro: si lavora sul formato d'esame
+  {id:"g1",s:"fr",l:1,t:"Ripasso veloce: dispense 1–2 e Rappel grammatical, solo per il lessico business",p:null,fmt:"PDF",a:2},
+  {id:"g2",s:"fr",l:1,t:"Grammatica B1 del syllabus: un giro di esercizi in stile esame (8 frasi), segna solo i dubbi",p:null,fmt:"esercizi",a:4},
+  {id:"g3",s:"fr",l:1,t:"Lessico dei 4 temi del corso: spostamenti, risorse umane, marketing, clienti",p:null,fmt:"lessico",a:4},
+  {id:"g4",s:"fr",l:1,t:"Mail professionale: formato e formule, poi 2 mail (reclamo, prenotazione) a mano con il dizionario",p:null,fmt:"scrittura",a:5},
+  {id:"g5",s:"fr",l:1,t:"Orale: scegli il tema, fai la scaletta, trova almeno 3 fonti",p:null,fmt:"presentazione",a:6},
+  {id:"g6",s:"fr",l:1,t:"Orale: PowerPoint completo (6–7 minuti, conclusione, opinione personale, bibliografia)",p:null,fmt:"presentazione",a:7},
+  {id:"g7",s:"fr",l:1,t:"Simulazione: esame dell'11 marzo 2024 a tempo (90', con il dizionario)",p:4,fmt:"PDF",a:8},
+  {id:"g8",s:"fr",l:1,t:"Orale provato ad alta voce e registrato, 2–3 volte",p:null,fmt:"presentazione",a:9},
+  // English Seminars (cod. 20637). Esame del 28 gennaio = sessione generale, modalità NON frequentanti (120')
+  {id:"e1",s:"en",l:1,t:"M1–M2 Effective Writing: BLUF, piramide rovesciata, memo + audio Kellaway (6')",p:6,fmt:"PDF + audio",a:9},
+  {id:"e2",s:"en",l:1,t:"M1 Business Summaries L1: nutshell statement e struttura del summary",p:8,fmt:"PDF",a:9},
+  {id:"e3",s:"en",l:1,t:"Paragraphing: come si costruisce un paragrafo",p:8,fmt:"PDF",a:9},
+  {id:"e4",s:"en",l:1,t:"M1 Business Summaries L2: summary di 150–180 parole sull'AI al lavoro",p:3,fmt:"PDF",a:10},
+  {id:"e5",s:"en",l:1,t:"Prova Part 1: ascolta 2 volte il podcast Accenture (4 parti, 16'), prendi appunti, scrivi un summary di 150–180 parole",p:null,fmt:"audio + scrittura",a:10},
+  {id:"e6",s:"en",l:1,t:"M3 Persuading L1: pre-suasion (Cialdini), problem → solution, benefit → action",p:10,fmt:"PDF + video",a:10},
+  {id:"e7",s:"en",l:1,t:"M3 AI Emails L2: struttura della mail persuasiva + mail di esempio",p:4,fmt:"PDF + HTML",a:11},
+  {id:"e8",s:"en",l:1,t:"M2 Report Writing L2 + guida «Writing Reports» + video (3') e podcast (6') + report di esempio",p:19,fmt:"PDF + audio",a:11},
+  {id:"e9",s:"en",l:1,t:"Work Trend Index 2024: lettura veloce come esempio di report (all'esame il testo te lo danno)",p:21,fmt:"PDF",a:11},
+  {id:"e10",s:"en",l:1,t:"M4 Presenting L1–L2 + Bailey, Academic Writing for Business (scansione)",p:14,fmt:"PDF + video",a:11},
+  {id:"e11",s:"en",l:1,t:"Prova Part 2 + 3: un articolo business, domande in parole tue (max 35), poi report di 250–350 parole",p:null,fmt:"lettura + scrittura",a:13},
+  {id:"e12",s:"en",l:1,t:"Non-Attending Mock Exam a tempo (120'), poi confronto con le soluzioni",p:10,fmt:"PDF",a:14},
+  {id:"e13",s:"en",l:1,t:"Mock Exam 1 e 2: solo i listening e i writing, come allenamento in più",p:8,fmt:"PDF",a:15},
+];
+// Tesi durante lo stage (relatrice contattata: Arianna Brioschi). w = settimana entro cui chiudere
+const TESI=[
+  {id:"t1",w:4,t:"Diario di stage ogni giorno e lista di 3–5 progetti candidati",x:"Per ogni progetto: obiettivo, durata, il tuo ruolo, che dati o risultati produrrà."},
+  {id:"t2",w:5,t:"Scegli il progetto target",x:"Deve durare almeno fino a primavera, darti un ruolo attivo, produrre dati o risultati osservabili e collegarsi a Marketing Management."},
+  {id:"t3",w:5,t:"Chiedi al tutor aziendale se puoi usarlo per la tesi",x:"Con quali vincoli di riservatezza, quali dati puoi citare, se serve un'autorizzazione scritta."},
+  {id:"t4",w:6,t:"Scrivi alla relatrice",x:"Progetto, domanda di ricerca provvisoria, 2–3 riferimenti di letteratura, una proposta di checkpoint. Chiedi un colloquio e chiedi quali regole valgono per l'uso dell'IA."},
+  {id:"t4b",w:6,t:"Richiesta Tesi su yoU@B (widget To Do List)",x:"È il passaggio formale che apre tutto. Dopo l'accettazione della relatrice si va avanti."},
+  {id:"t5",w:8,t:"Colloquio con la relatrice: perimetro, metodo, checkpoint, tipo di tesi",x:"«Tesi» (case study o analisi applicata, fino a 5 punti) o «tesi di ricerca» (research gap, metodologia, analisi dei risultati, fino a 8 punti). Esci con date scritte."},
+  {id:"t5b",w:9,t:"Conseguimento Titolo su yoU@B: titolo, tipo, lingua, consultazione",x:"Il titolo può essere provvisorio: lo cambi fino alla richiesta di benestare. Il tipo di tesi invece no, senza annullare e ripartire. Con l'azienda decidi se negare la consultazione della tesi. L'assegnazione del titolo serve per prenotare l'appello."},
+  {id:"t6",w:15,t:"Fino al 1° febbraio solo raccolta",x:"Diario e appunti sul progetto, niente scrittura. Dopo l'ultimo esame la tesi diventa la priorità."},
+  {id:"t7",w:18,t:"Checkpoint 1: domanda di ricerca definitiva e indice provvisorio",x:"Mandali alla relatrice una settimana prima del colloquio."},
+  {id:"t8",w:21,t:"Mappa della letteratura: 20–30 fonti",x:"I paper si ascoltano con la lettura vocale, come i libri d'esame. Una mappa per filone, le citazioni chiave nel gestore bibliografico."},
+  {id:"t9",w:24,t:"Checkpoint 2: capitolo teorico in bozza",x:"Caricalo in «Allegati tesi – Non definitivi» su yoU@B: la relatrice lo vede subito."},
+  {id:"t10",w:28,t:"Checkpoint 3: metodo e capitolo sul progetto",x:"Il caso aziendale, con i dati che il tutor ti ha autorizzato a usare. Anche questo negli allegati non definitivi."},
+  {id:"tpay",rel:"prenotazione",off:-30,t:"Paga il contributo di laurea (MAV, Punto Blu)",x:"La guida consiglia circa un mese prima della prenotazione: la prenotazione verifica che sia pagato."},
+  {id:"t11",w:32,t:"Checkpoint 4: bozza completa (analisi, discussione, conclusioni)",x:"Circa 50 pagine, 18.000 parole. Da qui in poi si rivede, non si aggiunge."},
+  {id:"tpren",rel:"prenotazione",off:0,t:"Prenotazione all'appello di laurea di luglio",x:"Agenda › Laurea › Conseguimento Titolo › Prenotazione. Poi indica l'indirizzo in Italia per le copie rilegate e aggiorna il profilo su Cv@B."},
+  {id:"t12",w:35,t:"Revisioni finali, bibliografia, formato e ok dell'azienda sul testo",x:"Lascia all'azienda il tempo di rileggere le parti riservate. Controlla il formato (vedi sotto)."},
+  {id:"tfin",rel:"consegna",off:0,t:"Abstract, file definitivo e richiesta di benestare",x:"Abstract max 4.000 caratteri, digitato nel box e non incollato. Dopo il caricamento e la richiesta di benestare non si cambia più niente."},
+  {id:"tdisc",rel:"consegna",off:14,t:"Prepara la discussione (circa 20 minuti)",x:"PowerPoint o PDF su chiavetta USB, più una copia su OneDrive Bocconi. Data, ora e aula le vedi su yoU@B circa 10 giorni prima."},
+];
+// Fine stage (aprile 2027): tappe calcolate dalla data di fine
+const STAGE=[
+  {id:"s1",off:-60,t:"Parla con il tutor del dopo-stage",x:"Rinnovo, assunzione o fine. Se ti propongono altri 6 mesi di stage extracurricolare, chiedi da quando partirebbe, chi lo attiva e se serve una pausa tra i due stage, così sai se copre maggio–luglio, mentre scrivi la tesi."},
+  {id:"s2",off:-30,t:"Tesi: raccogli dati, documenti e autorizzazioni scritte",x:"Tutto quello che ti serve dal progetto, prima di perdere l'accesso se lo stage non continua."},
+  {id:"s3",off:-7,t:"Valutazione finale su yoU@B (I miei stage)",x:"Obbligatoria entro la fine dello stage. Controlla anche che il tutor aziendale abbia compilato la sua: tocca a te verificarlo."},
+  {id:"s4",off:0,t:"Chiedi l'attestato di svolgimento stage",x:"La guida lo consiglia: è utile anche per il CV."},
+];
+const fineStage=()=>S.fineStage||"2027-04-16"; // data di fine comunicata dalla studentessa
+const FASI_LINGUA=[{k:"F",nome:"Fatto"},{k:"R",nome:"Ripassato"}];
+const FASI = [
+  {k:"A",nome:"Ascoltato"},{k:"M",nome:"Mappa"},{k:"P",nome:"Palazzo"},{k:"R",nome:"Ripassato"}
+];
+const RIPASSO = { // finestre di ripasso intensivo prima di ogni esame
+  tm:["2026-12-21","2027-01-06"], eb:["2026-12-28","2027-01-10"], b2b:["2027-01-08","2027-01-20"],
+  lux:["2027-01-14","2027-01-31"], fr:["2026-12-07","2026-12-15"], en:["2027-01-22","2027-01-27"]
+};
+const W1 = "2026-10-19"; // primo lunedì di stage
+
+/* ============ DATE ============ */
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return iso(d)};
+const diff=(a,b)=>Math.round((parse(b)-parse(a))/864e5);
+const MESI=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+const GIORNI=["domenica","lunedì","martedì","mercoledì","giovedì","venerdì","sabato"];
+const fmtD=s=>{const d=parse(s);return `${d.getDate()} ${MESI[d.getMonth()]}`};
+const fmtLong=s=>{const d=parse(s);return `${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]}`};
+const settimana=s=>{const g=diff(W1,s);return g<0?0:Math.floor(g/7)+1};
+const lunediDi=w=>addDays(W1,(w-1)*7);
+let OGGI = iso(new Date());
+
+/* ============ STATO ============ */
+const STATO_VUOTO = {v:1, fasi:{}, extra:[], fatti:{}, palestra:{}, casa:{}, coinq:["Io","Coinquilina 1","Coinquilina 2"],
+  faccende:["Bagno","Cucina e piano cottura","Pavimenti","Spazzatura e differenziata"],
+  palazzi:[{nome:"Casa dei miei",loci:["Porta d'ingresso","Attaccapanni","Corridoio","Cucina: frigo","Cucina: tavolo","Soggiorno: divano","Soggiorno: TV","Bagno","Camera: letto","Camera: armadio"]}],
+  palestraTarget:4, superati:{}, dadi:{}, natale:"?", weekendCasa:{}, tesi:{}, consegna:"", prenotazione:"", fineStage:"", dopoStage:"?", stageFatti:{}, note:""};
+let S = structuredClone(STATO_VUOTO);
+let db=null, docRef=null, saveTimer=null, ultimoSalvato="", uidCorrente=null;
+const unita=()=>[...UNITA_BASE, ...S.extra];
+const materia=id=>MATERIE.find(m=>m.id===id);
+const fase=u=>S.fasi[u.id]||0;
+const fasiDi=u=>u.l?FASI_LINGUA:FASI;
+
+function setSync(t){document.getElementById("sync").textContent=t}
+function salva(){
+  try{localStorage.setItem("sessione-inverno",JSON.stringify(S))}catch(e){}
+  if(!docRef){setSync("Salvato su questo dispositivo");return}
+  clearTimeout(saveTimer);
+  setSync("Salvataggio…");
+  saveTimer=setTimeout(async()=>{
+    const body=JSON.stringify(S); if(body===ultimoSalvato){setSync("Sincronizzato");return}
+    try{await docRef.set(JSON.parse(body)); ultimoSalvato=body; setSync("Sincronizzato su tutti i dispositivi")}
+    catch(e){setSync(e.code==="quota_exceeded"?"Spazio esaurito: salvato solo qui":"Non sincronizzato: salvato solo su questo dispositivo")}
+  },700);
+}
+function carica(o){ if(o&&o.v===1){S=Object.assign(structuredClone(STATO_VUOTO),o); prevXp=null} }
+try{const l=localStorage.getItem("sessione-inverno"); if(l) carica(JSON.parse(l))}catch(e){}
+
+async function avviaDb(){
+  try{
+    const c=window.claude; if(!c?.use){setSync("Salvato su questo dispositivo");return}
+    const [d,u]=await Promise.all([c.use("db"),c.use("user")]);
+    if(!d||!u){setSync("Salvato su questo dispositivo");return}
+    const id=await u.id(); if(!id){setSync("Salvato su questo dispositivo");return}
+    db=d; uidCorrente=id; docRef=db.collection("data/users/"+id).doc("stato");
+    const snap=await docRef.get();
+    if(snap.exists){carica(snap.data()); ultimoSalvato=JSON.stringify(S); render()}
+    else{await docRef.set(JSON.parse(JSON.stringify(S))); ultimoSalvato=JSON.stringify(S)}
+    setSync("Sincronizzato su tutti i dispositivi");
+    docRef.onSnapshot(sn=>{ if(!sn.exists||sn.metadata.hasPendingWrites) return;
+      const b=JSON.stringify(sn.data()); if(b!==ultimoSalvato&&b!==JSON.stringify(S)){carica(sn.data()); ultimoSalvato=b; render()} },()=>{});
+  }catch(e){setSync("Salvato su questo dispositivo")}
+}
+
+function toast(t){const el=document.getElementById("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,1800)}
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sc=id=>`--sc:var(${materia(id)?.col||"--accent"})`;
+
+/* ============ PIANO: cosa tocca oggi ============ */
+function inRitardo(u, w){ // fase attesa in base alla settimana
+  const f=fase(u); if(!u.a) return false;
+  if(w>u.a && f<1) return true;
+  if(!u.l && w>u.a+1 && f<3) return true;
+  return false;
+}
+function prossimaDa(fasiMin, fasiMax, w, campo){
+  return unita().filter(u=>u.a && !u.l && fase(u)>=fasiMin && fase(u)<=fasiMax && (campo==="a"?u.a<=w:u.a+1<=w))
+    .sort((x,y)=>x.a-y.a)[0];
+}
+function esameDi(s){return MATERIE.find(m=>m.esame===s)}
+function focusRipasso(s){ return MATERIE.filter(m=>{const r=RIPASSO[m.id];return r&&s>=r[0]&&s<=r[1]}) }
+
+function blocchiGiorno(s){
+  const d=parse(s).getDay(), w=settimana(s), out=[];
+  const ex=esameDi(s);
+  const daAsc=prossimaDa(0,0,Math.max(w,1),"a");
+  const daMap=prossimaDa(1,2,w,"m");
+  const ascTxt=daAsc?`<span class="dot" style="${sc(daAsc.s)}"></span>${esc(daAsc.t)}`:"Riascolta il blocco più debole";
+  const mapTxt=daMap?`<span class="dot" style="${sc(daMap.s)}"></span>${esc(daMap.t)}`:"Nessuna mappa arretrata: ripassa il palazzo";
+  const focus=focusRipasso(s);
+  const focTxt=focus.length?focus.map(m=>`<span class="dot" style="${sc(m.id)}"></span>${esc(m.breve)}`).join(" · "):"";
+  if(ex) out.push({id:"esame",t:"Esame",k:"exam",b:`Esame: ${esc(ex.nome)}`,x:ex.id==="fr"?"In presenza a Milano. Scritto 90' con il tuo dizionario cartaceo, poi l'orale circa un'ora dopo, senza dizionario. Porta il PowerPoint su chiavetta e nel cloud.":"In presenza a Milano. Giornata di permesso dallo stage."});
+  const exDomani=esameDi(addDays(s,1));
+  const linU=unita().filter(u=>u.l&&fase(u)<1&&u.a<=w&&materia(u.s).esame>s).sort((x,y)=>x.a-y.a)[0];
+  const linTxt=linU?`<span class="dot" style="${sc(linU.s)}"></span>${esc(materia(linU.s).breve)}: ${esc(linU.t)}`:"";
+  const sab = d===6?s:d===0?addDays(s,-1):null, aCasa = sab && S.weekendCasa?.[sab];
+  if(s<W1){ // settimana di preparazione
+    if(s==="2026-10-17") out.push({id:"trasloco",t:"Tutto il giorno",k:"casa",b:"Trasloco a Maranello",x:"Metti in valigia i libri stampati e il caricatore delle cuffie."});
+    if(s==="2026-10-18") out.push({id:"setup",t:"Pomeriggio",k:"studio",b:"Prepara la settimana 1",x:"Scansiona Go to Market (prime 60 pagine) e prova la lettura vocale. Controlla il percorso per lo stabilimento."});
+    return out;
+  }
+  if(s>"2027-02-01"){ // dopo gli esami: la tesi prende gli spazi dello studio
+    const tp=TESI.find(t=>!S.tesi?.[t.id]); const tt=tp?esc(tp.t):"Tesi";
+    if(d>=1&&d<=5){
+      out.push({id:"palestra",t:"06:30",k:"palestra",b:"Palestra",x:"In cuffia: un paper della letteratura con la lettura vocale, o musica. Te lo sei guadagnato."});
+      if(S.dopoStage==="fine" && s>fineStage()){
+        out.push({id:"mattina-tesi",t:"09–13",k:"tesi",b:"Tesi (4h)",x:`${tt}. Due blocchi da 90' con pausa a metà.`});
+        out.push({id:"pomeriggio",t:"Pomeriggio",k:"libero",b:"Candidature o tempo libero",x:"Un'ora al giorno di ricerca di lavoro basta."});
+      } else {
+        out.push({id:"stage",t:"09–18",k:"work",b:S.dopoStage==="assunta"&&s>fineStage()?"Lavoro":"Stage",x:"Il progetto della tesi è qui: prendi nota di quello che serve."});
+        out.push({id:"diario",t:"17:50",k:"tesi",b:"Diario di stage (5')",x:"Tre righe, negli strumenti dell'azienda."});
+      }
+      if((d===1||d===2||d===4) && !(S.dopoStage==="fine" && s>fineStage())) out.push({id:"sera",t:"19:30",k:"tesi",b:"Scrittura tesi (45')",x:`${tt}. Scrivi senza correggere: si rivede il sabato.`});
+      if(d===3) out.push({id:"casa",t:"19:30",k:"casa",b:"Casa e spesa",x:"Turno di pulizie della settimana."});
+      if(d===5) out.push({id:"libera",t:"Sera",k:"libero",b:"Sera libera",x:"Niente tesi."});
+    } else if(d===6 && !aCasa){
+      out.push({id:"sab",t:"09:30",k:"tesi",b:"Tesi (3h)",x:`${tt}. Prima rileggi e sistema quello scritto in settimana, poi vai avanti.`});
+      out.push({id:"pulizie",t:"15:00",k:"casa",b:"Pulizie di casa",x:"Turno a rotazione: vedi la scheda Casa."});
+    } else if(d===0 && !aCasa) out.push({id:"checkin",t:"18:00",k:"tesi",b:"Check-in settimanale (10')",x:"Apri Piano: guarda la prossima tappa della tesi e quanto manca."});
+    else if(aCasa) out.push({id:"viaggio",t:"—",k:"ascolto",b:d===6?"Weekend a casa":"Viaggio di ritorno (3h)",x:"In macchina: un paper o un podcast. La sessione del sabato si recupera in settimana."});
+    return out;
+  }
+  const ripasso = s>="2026-12-21";
+  if(d>=1&&d<=5){
+    if(!ex){
+      out.push({id:"palestra",t:"06:30",k:"palestra",b:"Palestra",x:ripasso?`In cuffia: giro del palazzo di ${focTxt||"oggi"}`:`In cuffia: ${ascTxt}`});
+      out.push({id:"andata",t:"08:30",k:"ascolto",b:"Tragitto · ascolto",x:ripasso?`Riascolto mirato: ${focTxt}`:ascTxt});
+      out.push({id:"stage",t:"09–18",k:"work",b:"Stage",x:"In pausa pranzo, 15 minuti di ascolto se ti va. Non è obbligatorio."});
+      out.push({id:"diario",t:"17:50",k:"tesi",b:"Diario di stage (5')",x:"Tre righe: su cosa hai lavorato, che problema c'era, che dati o decisioni sono usciti. Scrivilo negli strumenti dell'azienda, non qui."});
+      out.push({id:"ritorno",t:"18:00",k:"ascolto",b:"Tragitto · ascolto",x:ripasso?`Riascolto mirato: ${focTxt}`:ascTxt});
+      if(exDomani && d!==5) {}
+      else if(linU && d===2) out.push({id:"sera",t:"19:30",k:"studio",b:"Lingue (45')",x:`${linTxt}. Scrivi e parla a voce alta.`});
+      else if(d===1||d===2||d===4) out.push({id:"sera",t:"19:30",k:"studio",b:ripasso?"Sessione di ripasso (45')":"Sessione attiva (45')",
+        x:ripasso?`${focTxt}: rifai la mappa a memoria, poi confronta. Chiudi con 5 domande dall'Assistente.`:`Mappa di ${mapTxt}. 2 pomodori da 20', in piedi o a voce alta.`});
+      if(d===3) out.push({id:"casa",t:"19:30",k:"casa",b:"Casa e spesa",x:"Il tuo turno di pulizie della settimana, con le cuffie (ascolto leggero)."});
+      if(d===5) out.push(S.weekendCasa?.[addDays(s,1)]
+        ? {id:"viaggio-a",t:"18:30",k:"ascolto",b:"Viaggio verso casa (3h)",x:`In macchina: ${ascTxt}. Ultima mezz'ora: giro del palazzo a voce alta.`}
+        : {id:"libera",t:"Sera",k:"libero",b:"Sera libera",x:"Niente studio. Serve a reggere fino a febbraio."});
+      if(exDomani && d!==5) out.push({id:"vigilia",t:"Sera",k:"studio",b:`Vigilia: ${esc(exDomani.breve)}`,x:"Ripasso leggero, solo mappe e palazzo. Prepara documenti e viaggio per Milano, e vai a letto presto."});
+    }
+  } else if(aCasa){
+    if(d===6) out.push({id:"casa-sab",t:"Mattina",k:"studio",b:"A casa · 1h a scelta",x:daMap?`Se trovi un'ora: ${mapTxt}. Se no, va bene così: la sessione si recupera lunedì e giovedì (+20').`:"Riposa."});
+    else out.push({id:"viaggio-r",t:"Pomeriggio",k:"ascolto",b:"Viaggio di ritorno (3h)",x:`In macchina: ${ascTxt}. Il check-in lo fai lunedì in pausa pranzo.`});
+    if(exDomani && d===0) out.push({id:"vigilia",t:"Sera",k:"studio",b:`Vigilia: ${esc(exDomani.breve)}`,x:"Ripasso leggero. Domani si parte presto per Milano."});
+  } else if(d===6){
+    out.push({id:"sab",t:"09:30",k:"studio",b:ripasso?"Ripasso lungo (3h)":"Mappe e palazzo (3h)",
+      x:ripasso?`${focTxt}: simulazione d'esame con l'Assistente, poi riempi i buchi.`:`Chiudi le mappe della settimana (${mapTxt}), poi colloca i concetti chiave nel palazzo.`});
+    out.push({id:"pulizie",t:"15:00",k:"casa",b:"Pulizie di casa",x:"Turno a rotazione: vedi la scheda Casa."});
+  } else {
+    out.push({id:"dom",t:"10:00",k:"studio",b:"Giro del palazzo + quiz (2h)",x:"Percorri il palazzo di tutte le materie fatte finora. Quello che non torna, va in lista per lunedì."});
+    if(exDomani) out.push({id:"vigilia",t:"Sera",k:"studio",b:`Vigilia: ${esc(exDomani.breve)}`,x:"Ripasso leggero, solo mappe e palazzo. Prepara documenti e viaggio per Milano, e vai a letto presto."});
+    else out.push({id:"checkin",t:"18:00",k:"studio",b:"Check-in settimanale (10')",x:"Apri Piano: segna cosa hai chiuso e guarda se qualcosa è in ritardo."});
+  }
+  return out;
+}
+
+const MOTTI=["Disciplina, non motivazione.","Un blocco alla volta.","Il lavoro di oggi è l'esame di gennaio.","Nessuno lo vede. Tu sì.","Pochi minuti, ogni giorno.","Fai la cosa difficile per prima.","Silenzio, cuffie, avanti.","Costante batte intenso.","Il percorso si fa una casella per volta.","Prima la mappa, poi il mondo."];
+/* ============ VISTE ============ */
+const VISTE=[["percorso","Percorso"],["oggi","Oggi"],["piano","Piano"],["materie","Materie"],["aiuto","Studio"],["casa","Casa"],["metodo","Metodo"]];
+const IN_NAV=["percorso","oggi","piano","materie","aiuto","casa"];
+VISTE.push(["slide","Slide"]);
+let vista="oggi";
+try{const h=location.hash.slice(1); if(VISTE.some(v=>v[0]===h)) vista=h}catch(e){}
+let giornoVisto=OGGI;
+
+function renderTesta(){
+  document.getElementById("oggiLabel").textContent=fmtLong(OGGI)+(settimana(OGGI)?" · settimana "+settimana(OGGI):"");
+  document.getElementById("motto").textContent=MOTTI[Math.abs(diff(W1,OGGI))%MOTTI.length];
+  const prossimo=MATERIE.filter(m=>m.esame>=OGGI).sort((a,b)=>a.esame<b.esame?-1:1)[0];
+  const n=document.getElementById("next");
+  if(prossimo){const g=diff(OGGI,prossimo.esame);
+    n.innerHTML=`<p class="eyebrow">Esame · ${fmtD(prossimo.esame)}</p><div class="big num">${g}</div><p class="sub">${g===1?"giorno":"giorni"} a <b>${esc(prossimo.breve)}</b></p>`;
+  } else n.innerHTML=`<div class="big">Fine</div><div><h3>Sessione chiusa</h3></div>`;
+  const stripHtml=MATERIE.map(m=>`<span class="chip num ${m.esame<OGGI?"past":""}" style="${sc(m.id)}">${fmtD(m.esame).toUpperCase()} · ${esc(m.breve)}</span>`).join("");
+  renderTesta.strip=stripHtml;
+  document.getElementById("nav").innerHTML=VISTE.filter(([k])=>IN_NAV.includes(k)).map(([k,t])=>`<button data-v="${k}" ${k===vista?'aria-current="page"':""}>${t}</button>`).join("");
+}
+
+function vOggi(){
+  const s=giornoVisto, w=settimana(s), bl=blocchiGiorno(s), fatti=S.fatti[s]||{};
+  const late=unita().filter(u=>inRitardo(u,settimana(OGGI)));
+  let h=`<div class="daynav">
+    <button class="btn ghost" data-g="-1" aria-label="Giorno prima">‹</button>
+    <div><h2>${s===OGGI?"Oggi":fmtLong(s)}</h2><p class="muted small">${w?(w<=16?`Settimana ${w} di 16`:`Settimana ${w} · tesi`):"Preparazione"}</p></div>
+    <button class="btn ghost" data-g="1" aria-label="Giorno dopo">›</button></div>`;
+  if(s<W1 && s>=addDays(W1,-7)) h+=prepCard();
+  const dd=parse(s).getDay(), sabato=dd===6?s:dd===0?addDays(s,-1):dd===5?addDays(s,1):null;
+  if(sabato && s>=W1){const on=!!S.weekendCasa?.[sabato];
+    h+=`<div class="row" style="margin-top:12px;justify-content:space-between" ><span class="small muted">Weekend del ${fmtD(sabato)}</span><button class="btn ${on?"":"ghost"}" data-wcasa="${sabato}" aria-pressed="${on}">${on?"Torno a casa ✓":"Torno a casa questo weekend?"}</button></div>`}
+  h+=`<div class="day" style="margin-top:12px">`;
+  if(!bl.length && !(s<W1 && s>=addDays(W1,-7))) h+=`<div class="card muted">Niente in programma per questo giorno.</div>`;
+  for(const b of bl){const on=!!fatti[b.id];
+    h+=`<div class="blk kind-${b.k}"><div class="t num">${b.t}</div><div class="w"><b>${b.b}</b><span class="small muted">${b.x}</span></div>
+      ${b.k==="work"?"<span></span>":`<button class="tick" data-fatto="${b.id}" aria-pressed="${on}" aria-label="Segna ${esc(b.b)} come fatto">${on?"✓":""}</button>`}</div>`}
+  h+=`</div>`;
+  if(late.length) h+=`<details class="fold"><summary><span>In ritardo</span><span class="cnt late num">${late.length}</span></summary><div class="card">${late.slice(0,6).map(unitRow).join("")}${late.length>6?`<p class="small muted" style="padding-top:8px">…e altre ${late.length-6} in Materie.</p>`:""}</div>
+    <p class="small muted" style="margin-top:8px">Non recuperare tutto in una sera: un blocco in più al sabato basta.</p></details>`;
+  STAGE.filter(t=>!S.stageFatti?.[t.id]&&diff(s,addDays(fineStage(),t.off))<=21&&s>=W1).forEach(t=>{
+    h+=`<div class="card" style="margin-top:12px"><span class="tag">Stage</span> <b>${esc(t.t)}</b> <span class="small muted">entro il ${fmtD(addDays(fineStage(),t.off))}</span><div class="small muted">${esc(t.x)}</div></div>`});
+  const tProssima=TESI.find(t=>!S.tesi?.[t.id]);
+  if(tProssima && s>=W1) h+=`<button class="fold-link" data-v="piano"><span><span class="tag">Tesi</span> ${esc(tProssima.t)}</span><span class="small muted num">${scadTesi(tProssima)?fmtD(scadTesi(tProssima)):"—"}</span></button>`;
+  const w0=Math.max(w,1), qs=unita().filter(u=>u.a===w0||(!u.l&&u.a+1===w0));
+  if(qs.length) h+=`<details class="fold"><summary><span>Questa settimana</span><span class="cnt num">${qs.filter(u=>fase(u)>=(u.l?1:3)).length}/${qs.length}</span></summary><div class="legend" style="margin-bottom:8px">${FASI.map(f=>`<span style="--lc:var(--muted)">${f.k} = ${f.nome}</span>`).join("")}<span style="--lc:var(--c-fr)">Lingue: F = Fatto</span></div><div class="card">${qs.map(unitRow).join("")}</div></details>`;
+  return h;
+}
+function prepCard(){
+  const L=[["p1","Scansiona i materiali stampati della settimana 1 (Go to Market) con il telefono e trasformali in audio"],
+    ["p2","Prova la lettura vocale del telefono su Kindle e su Egea digitabook (vedi Metodo)"],
+    ["p3","Scegli il palazzo della memoria e scrivi le sue tappe nella scheda Casa"],
+    ["p4","Controlla orari e iscrizione della palestra a Fiorano"],
+    ["p5","Chiedi in azienda come chiedere i 6 giorni d'esame e se c'è una chiusura a Natale"],
+    ["p6","Concorda con le coinquiline i turni di pulizia"],
+    ["p7","Recupera i materiali di English Seminars"],
+    ["p8","Francese: procurati un dizionario cartaceo italiano-francese (ammesso allo scritto)"],
+    ["p9","Iscriviti all'esame di francese del 16 dicembre su Agenda yoU@B"]];
+  const f=S.fatti.prep||{};
+  return `<div class="card" style="margin-top:12px"><h3>Prima del trasloco</h3><div class="stack" style="margin-top:8px">${L.map(([k,t])=>`<div class="row" style="flex-wrap:nowrap"><button class="tick" data-prep="${k}" aria-pressed="${!!f[k]}">${f[k]?"✓":""}</button><span>${t}</span></div>`).join("")}</div></div>`;
+}
+function unitRow(u){
+  const f=fase(u), late=inRitardo(u,settimana(OGGI));
+  return `<div class="unit" style="${sc(u.s)}"><div style="min-width:0"><div><span class="dot"></span>${esc(u.t)}</div>
+    <div class="meta">${u.p?u.p+" pp · ":""}${esc(u.fmt)}${u.a?(u.l?` · settimana ${u.a}`:` · ascolto sett. ${u.a}, mappa sett. ${u.a+1}`):""}${late?' · <span class="late">in ritardo</span>':""}</div></div>
+    <div class="phases">${fasiDi(u).map((x,i)=>`<button class="ph ${f>i?"on":""}" data-u="${u.id}" data-f="${i+1}" aria-label="${x.nome}" title="${x.nome}">${x.k}</button>`).join("")}</div></div>`;
+}
+
+function vPiano(){
+  const wNow=settimana(OGGI);
+  let h=`<h2>Esami</h2><div class="strip" aria-label="Calendario esami">${renderTesta.strip||""}</div><h2>Il piano in 16 settimane</h2><p class="muted small">Ascolti nella settimana indicata, mappi e fissi nel palazzo nella settimana dopo. Da Natale in poi si ripassa una materia alla volta, nell'ordine degli esami.</p>`;
+  h+=`<div class="card" style="margin-top:12px"><b>Natale:</b> <span class="small">l'azienda chiude?</span>
+    <div class="row" style="margin-top:6px">${["Sì","No","?"].map(v=>`<button class="btn ${S.natale===v?"":"ghost"}" data-natale="${v}">${v==="?"?"Non so ancora":v}</button>`).join("")}</div>
+    <p class="small muted" style="margin-top:6px">${S.natale==="No"?"Allora dal 21 dicembre tutte le sere da lunedì a giovedì diventano ripasso, e i weekend arrivano a 4 ore.":S.natale==="Sì"?"I giorni di chiusura sono il tuo vantaggio: 4–5 ore al giorno su Trade Marketing ed Experience Branding, e tieni libere almeno 24, 25 e 31 dicembre.":"Chiedilo: cambia molto il ripasso di Trade Marketing (esame il 7 gennaio)."}</p></div>`;
+  h+=tesiCard()+stageCard();
+  for(let w=1;w<=16;w++){
+    const lun=lunediDi(w), dom=addDays(lun,6);
+    const asc=unita().filter(u=>u.a===w&&!u.l), map=unita().filter(u=>u.a+1===w&&!u.l), lin=unita().filter(u=>u.a===w&&u.l);
+    const esami=MATERIE.filter(m=>m.esame>=lun&&m.esame<=dom);
+    const rip=MATERIE.filter(m=>{const r=RIPASSO[m.id];return r[0]<=dom&&r[1]>=lun});
+    const items=[];
+    if(w===1) items.push(`<span class="small muted">Primo lunedì di stage. Trasloco il 17.</span>`);
+    esami.forEach(m=>items.push(`<span style="${sc(m.id)}"><span class="dot"></span><b>Esame ${esc(m.breve)} · ${fmtLong(m.esame)}</b></span>`));
+    const grp=(arr,lab)=>{const by={};arr.forEach(u=>(by[u.s]=by[u.s]||[]).push(u));
+      return Object.entries(by).map(([s,us])=>`<span style="${sc(s)}"><span class="dot"></span>${lab} ${esc(materia(s).breve)}: ${us.length} ${us.length===1?"blocco":"blocchi"}${us[0].p?` · ${us.reduce((a,u)=>a+(u.p||0),0)} pp`:""} <span class="muted">(${us.filter(u=>fase(u)>=(lab==="Ascolta"?1:3)).length}/${us.length} fatti)</span></span>`)};
+    items.push(...grp(asc,"Ascolta"), ...grp(map,"Mappa"));
+    lin.forEach(u=>items.push(`<span style="${sc(u.s)}"><span class="dot"></span>${esc(materia(u.s).breve)}: ${esc(u.t)} ${fase(u)?'<span class="muted">✓</span>':""}</span>`));
+    const wc=Object.keys(S.weekendCasa||{}).find(x=>x>=lun&&x<=dom); if(wc) items.push(`<span class="muted small">Weekend a casa: si recupera lunedì e giovedì</span>`);
+    rip.forEach(m=>items.push(`<span style="${sc(m.id)}"><span class="dot"></span>Ripasso ${esc(m.breve)}</span>`));
+    h+=`<div class="wk ${w===wNow?"now":""}"><div class="d num">SETT. ${w}<br><span class="muted small" style="font-family:var(--f-body)">${fmtD(lun)}–${fmtD(dom)}</span></div><div class="items">${items.join("")||'<span class="muted small">—</span>'}</div></div>`;
+  }
+  h+=`<div class="row" style="margin-top:16px"><button class="btn" id="ics">Scarica gli esami nel calendario (.ics)</button></div>`;
+  return h;
+}
+
+function vMaterie(){
+  let h=`<div class="row" style="justify-content:space-between;margin-top:28px"><h2 style="margin:0">Materie e materiali</h2><button class="btn ghost" data-v="metodo">Metodo di studio</button></div><div class="legend">${FASI.map((f,i)=>`<span style="--lc:color-mix(in srgb,var(--accent) ${25*(i+1)}%,transparent)">${f.k} ${f.nome}</span>`).join("")}</div><div class="stack" style="margin-top:12px">`;
+  for(const m of MATERIE){
+    const us=unita().filter(u=>u.s===m.id), pp=us.reduce((a,u)=>a+(u.p||0),0);
+    const cnt=[1,2,3,4].map(k=>us.filter(u=>fase(u)>=k).length);
+    const pct=us.length?Math.round(us.reduce((a,u)=>a+fase(u)/fasiDi(u).length,0)/us.length*100):0;
+    h+=`<details class="card subj" style="${sc(m.id)}" ${m.id===materiaAperta?"open":""} data-mat="${m.id}"><summary style="cursor:pointer;list-style:none">
+      <div class="row" style="justify-content:space-between"><h3>${esc(m.nome)}</h3><span class="tag num">${fmtD(m.esame)}</span></div>
+      <p class="small muted" style="margin:4px 0 8px">${us.length?`${us.length} blocchi${pp?` · ${pp} pagine`:""} · ${pct}% del lavoro`:"Materiali da aggiungere"}</p>
+      <div class="bar">${us.length?`<i style="width:${pct}%;background:var(--sc)"></i>`:""}</div>
+      ${m.lingua?"":`<p style="margin-top:8px"><button class="btn ghost" data-slmat="${m.id}">Slide e dispensa${lezioni.filter(l=>l.materia===m.id).length?` (${lezioni.filter(l=>l.materia===m.id).length})`:""}</button></p>`}
+      ${!us.length?"":m.lingua?`<p class="small muted num" style="margin-top:6px">Fatti ${cnt[0]}/${us.length} · Ripassati ${cnt[1]}/${us.length}</p>`:`<p class="small muted num" style="margin-top:6px">Ascoltati ${cnt[0]}/${us.length} · Mappe ${cnt[1]}/${us.length} · Palazzo ${cnt[2]}/${us.length} · Ripassati ${cnt[3]}/${us.length}</p>`}</summary>
+      ${m.id==="fr"?esameFr():m.id==="en"?esameEn():""}
+      <div style="margin-top:8px">${us.map(unitRow).join("")||`<p class="small muted">Quando hai la lista, aggiungila qui sotto.</p>`}</div>
+      <form class="stack" data-add="${m.id}" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+        <b class="small">Aggiungi materiale</b>
+        <input type="text" id="t-${m.id}" name="t" placeholder="Titolo o capitolo" required>
+        <div class="grid2"><input type="number" id="p-${m.id}" name="p" placeholder="Pagine" min="1">
+        <select id="f-${m.id}" name="f"><option>stampato</option><option>PDF</option><option>Kindle</option><option>online</option><option>audio/video</option></select></div>
+        <label class="f">Settimana d'ascolto (1–16)<input type="number" id="a-${m.id}" name="a" min="1" max="16" value="${Math.max(1,Math.min(16,settimana(OGGI)||1))}"></label>
+        <button class="btn" type="submit">Aggiungi</button></form>
+      ${us.filter(u=>u.extra).map(u=>`<button class="btn ghost small" data-del="${u.id}" style="margin-top:6px">Togli «${esc(u.t)}»</button>`).join("")}
+    </details>`;
+  }
+  return h+`</div>`;
+}
+let materiaAperta=null, bkInAttesa=null;
+async function esportaBackup(){
+  const data=JSON.stringify({app:"winter-arc",v:1,esportato:new Date().toISOString(),stato:S,lezioni});
+  try{const dl=await claude?.use?.("downloads"); if(!dl){toast("Download non disponibile qui");return}
+    await dl.save({filename:`winter-arc-backup-${OGGI}.json`,data:new Blob([data],{type:"application/json"})}); toast("Backup salvato")}catch(e){toast("Backup annullato")}
+}
+async function ripristinaBackup(){
+  const b=bkInAttesa; bkInAttesa=null; if(!b) return;
+  carica(b.stato); salva();
+  for(const l of (b.lezioni||[])) await salvaLezione(l).catch(()=>{});
+  render(); toast("Dati ripristinati");
+}
+function stageCard(){
+  const fs=fineStage(), opz=[["?","Non so ancora"],["proroga","Stage extracurricolare"],["assunta","Assunta"],["fine","Finisce"]];
+  return `<div class="card" style="margin-top:12px"><h3>Stage · fine</h3>
+  <div class="grid2" style="margin-top:8px"><label class="f">Data di fine (dal progetto formativo su JobGate)<input type="date" id="fineStage" value="${esc(fineStage())}"></label>
+  <label class="f">Dopo lo stage<select id="dopoStage">${opz.map(([v,l])=>`<option value="${v}" ${S.dopoStage===v?"selected":""}>${l}</option>`).join("")}</select></label></div>
+  <p class="small muted" style="margin-top:4px">Fine il ${fmtLong(fs)}: mancano <b class="num">${diff(OGGI,fs)}</b> giorni. ${S.dopoStage==="fine"?"Dal giorno dopo, le mattine dei giorni feriali diventano tesi.":""}</p>
+  <div class="stack" style="margin-top:10px">${STAGE.map(t=>{const on=!!S.stageFatti?.[t.id], sd=addDays(fs,t.off), late=!on&&OGGI>sd;
+    return `<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><button class="tick" data-stagef="${t.id}" aria-pressed="${on}" aria-label="${esc(t.t)}">${on?"✓":""}</button>
+    <div style="min-width:0"><b>${esc(t.t)}</b> <span class="small ${late?"late":"muted"}">entro il ${fmtD(sd)}${late?" · in ritardo":""}</span><div class="small muted">${esc(t.x)}</div></div></div>`}).join("")}</div></div>`}
+function scadTesi(t){ // data entro cui chiudere la tappa, o null se dipende da una data non ancora inserita
+  if(t.rel) return S[t.rel]?addDays(S[t.rel],t.off):null;
+  return addDays(lunediDi(t.w),6);
+}
+function tesiCard(){
+  return `<div class="card" style="margin-top:12px"><div class="row" style="justify-content:space-between"><h3>Tesi · laurea a luglio 2027</h3><span class="tag">Relatrice: A. Brioschi</span></div>
+  <p class="small muted" style="margin-top:4px">Luglio è il primo appello per il tuo anno: laurearsi a luglio o a ottobre vale 1 punto in più sul voto di laurea.</p>
+  <div class="grid2" style="margin-top:8px">
+    <label class="f">Scadenza prenotazione appello<input type="date" id="prenotazione" value="${esc(S.prenotazione||"")}"></label>
+    <label class="f">Scadenza file definitivo e benestare<input type="date" id="consegna" value="${esc(S.consegna||"")}"></label></div>
+  <p class="small ${S.consegna&&S.prenotazione?"":"muted"}" style="margin-top:4px">${S.consegna?`<b class="num">${diff(OGGI,S.consegna)}</b> giorni al file definitivo${S.consegna<addDays(lunediDi(35),6)?' · <span class="late">cade prima delle revisioni finali: anticipiamo le tappe</span>':""}`:"Le due date le trovi nel calendario delle sessioni su unibocconi.it/laurea. Finché mancano, le tappe legate a quelle date restano senza scadenza."}</p>
+  <div class="stack" style="margin-top:10px">${TESI.map(t=>{const on=!!S.tesi?.[t.id], sd=scadTesi(t), late=!on&&sd&&OGGI>sd;
+    return `<div class="row" style="flex-wrap:nowrap;align-items:flex-start"><button class="tick" data-tesi="${t.id}" aria-pressed="${on}" aria-label="${esc(t.t)}">${on?"✓":""}</button>
+    <div style="min-width:0"><b>${esc(t.t)}</b> <span class="small ${late?"late":"muted"}">${sd?"entro il "+fmtD(sd):"data dal calendario lauree"}${late?" · in ritardo":""}</span><div class="small muted">${esc(t.x)}</div></div></div>`}).join("")}</div>
+  <details style="margin-top:12px"><summary class="small" style="cursor:pointer"><b>Formato del file definitivo</b></summary>
+  <ul class="small" style="margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px">
+    <li>Un solo PDF, max 10 MB, chiamato TS + matricola (es. TS1234567.pdf). Meglio salvarlo da «Stampa» che con editor PDF online.</li>
+    <li>In testa 4 pagine: bianca, bianca, dedica o ringraziamenti (o bianca), bianca. Indice e numerazione cominciano dopo.</li>
+    <li>Niente frontespizio, niente abstract nel file, niente nome o matricola nel testo, niente logo Bocconi.</li>
+    <li>A4, margini destro e sinistro 2,5 cm, 26–30 righe per pagina, Arial, Tahoma o Verdana corpo 12, pagine numerate.</li>
+    <li>Il contenuto comincia su pagina dispari: si stampa fronte e retro.</li>
+    <li>IA: solo se concordata prima con la relatrice, dichiarata nel testo e citata in bibliografia. La tesi passa da un software antiplagio.</li>
+  </ul></details></div>`}
+function esameEn(){return `<div class="small stack" style="margin-top:10px;padding:10px;border-radius:10px;background:var(--bg)">
+  <b>Com'è l'esame (cod. 20637, C1)</b>
+  <p>Il 28 gennaio è una sessione generale: si fa in <b>modalità non frequentanti</b>, 120 minuti. Il voto è in dodicesimi: <b>per passare servono almeno 9 punti su 12</b>. Il risultato è solo superato o non superato. Iscrizione su yoU@B.</p>
+  <div class="tbl"><table><thead><tr><th>Parte</th><th>Punti</th><th>Cosa</th></tr></thead><tbody>
+  <tr><td>1 · Listening to Writing</td><td class="num">4</td><td>Ascolti una conversazione 2 volte, prendi appunti e scrivi un summary di 150–180 parole, con parole tue</td></tr>
+  <tr><td>2 · Reading Comprehension</td><td class="num">4</td><td>Un articolo business: scelta multipla e domande aperte in parole tue (max 35 parole; se copi dal testo non prendi punti)</td></tr>
+  <tr><td>3 · Reading to Writing</td><td class="num">4</td><td>Report o mail persuasiva di 250–350 parole, con almeno 3 informazioni dall'articolo della Parte 2 e idee tue</td></tr>
+  </tbody></table></div>
+  <p>I testi te li danno all'esame: non serve imparare a memoria dati o numeri. Servono le strutture del corso: nutshell statement, BLUF, paragrafi, problem → solution, struttura del report.</p>
+  <p class="muted">In alternativa all'esame si può far riconoscere una certificazione linguistica accettata dal Language Center (procedura su yoU@B, widget «Language Centre»).</p></div>`}
+function esameFr(){return `<div class="small stack" style="margin-top:10px;padding:10px;border-radius:10px;background:var(--bg)">
+  <b>Com'è l'esame (cod. 20372)</b>
+  <div class="tbl"><table><thead><tr><th>Parte</th><th>Punti</th><th>Cosa</th></tr></thead><tbody>
+  <tr><td>Comprensione orale</td><td class="num">8</td><td>2 audio ascoltati 2 volte: 4 domande a scelta multipla + 8 buchi da riempire</td></tr>
+  <tr><td>Comprensione scritta + grammatica</td><td class="num">8</td><td>4 domande a scelta multipla su un testo + 8 frasi di grammatica</td></tr>
+  <tr><td>Mail (min. 150 parole)</td><td class="num">8</td><td>Formato 2 (mittente, destinatario, oggetto, formula d'apertura e di chiusura, firma) · contenuto 3 · lingua 3</td></tr>
+  <tr><td>Orale (max 15')</td><td class="num">7</td><td>PowerPoint di 6–7 minuti su un tema economico, politico, giuridico o sociale. Finisce con conclusione, opinione personale e bibliografia (min. 3 fonti), poi domande</td></tr>
+  </tbody></table></div>
+  <p>Scritto 90', tutto su temi «business», su tutto il libro <i>Savoir-faire dans les affaires</i>. L'orale si fa lo stesso giorno, circa un'ora dopo lo scritto.</p>
+  <p><b>Per passare servono almeno 18 punti su 31 e almeno 1 punto in ognuna delle 4 parti.</b></p>
+  <p>Allo scritto puoi usare il <b>dizionario cartaceo bilingue</b>, che devi portare tu. All'orale niente dizionario. Ricordati l'iscrizione su Agenda yoU@B.</p>
+  <p class="muted">Il syllabus dice che l'IA generativa non è consentita agli studenti. La presentazione e tutto ciò che consegni o presenti li fai da sola. L'Assistente qui serve solo per esercitarti. Se hai dubbi, chiedi alla docente.</p></div>`}
+
+function vMetodo(){
+  return `<h2>Come studiare senza addormentarti</h2>
+  <p class="muted">Il tuo problema non è il tempo: è che leggere ti spegne. Quindi la lettura sparisce quasi del tutto. Ogni blocco passa per quattro fasi, e solo la seconda richiede di stare seduta.</p>
+  <div class="steps" style="margin-top:14px">
+    <div class="step"><div><b>Ascolta (A)</b><p class="small muted">Il testo diventa audio, e lo ascolti in palestra, nel tragitto, mentre pulisci. Velocità 1,2–1,4×. Una pagina accademica in inglese dura circa 2 minuti: un blocco da 30 pagine è un'ora di ascolto. Non devi capire tutto: ti serve per sapere di cosa parla il capitolo.</p></div></div>
+    <div class="step"><div><b>Mappa (M)</b><p class="small muted">La sera dopo, 2 pomodori da 20'. Prima scrivi a memoria lo scheletro del capitolo, poi apri il testo solo per controllare titoli, grafici e definizioni. Così il testo lo consulti, non lo leggi, e non ti addormenti. L'Assistente può prepararti lo schema da incollare in MindMeister o Xmind.</p></div></div>
+    <div class="step"><div><b>Palazzo (P)</b><p class="small muted">Liste, framework e nomi (es. le leve del category management, i casi Gucci/Bottega Veneta/Ferrari) vanno nelle tappe del palazzo. Un palazzo diverso per materia, o un'ala diversa. Le tappe le scrivi nella scheda Casa; l'Assistente propone le immagini.</p></div></div>
+    <div class="step"><div><b>Ripassa (R)</b><p class="small muted">Domenica: giro del palazzo + 5 domande. Nelle finestre di ripasso prima di ogni esame: rifai le mappe a memoria e fatti interrogare. Segna R quando sai rispondere senza guardare.</p></div></div>
+  </div>
+  <h2>Trasformare i materiali in audio</h2>
+  <div class="tbl"><table><thead><tr><th>Materiale</th><th>Formato</th><th>Come ascoltarlo</th></tr></thead><tbody>
+    <tr><td>Go to Market · paper B2B · casi e testi Luxury</td><td>stampato</td><td>Fotografa le pagine con un'app che fa OCR e legge ad alta voce (ElevenReader, Speechify o Adobe Scan + lettore). Fallo il weekend, per la settimana dopo.</td></tr>
+    <tr><td>Digital Loyalty</td><td>Kindle</td><td>Lettura vocale del telefono: su iPhone «Leggi schermo» (Impostazioni › Accessibilità › Contenuto letto ad alta voce, poi due dita dall'alto verso il basso). Su Android «Seleziona per ascoltare». Kindle gira pagina da solo.</td></tr>
+    <tr><td>Experience Branding</td><td>Egea digitabook</td><td>Stessa lettura vocale del telefono, sull'app o nel browser.</td></tr>
+    <tr><td>B2B · libro</td><td>Adobe Digital Editions</td><td>Aprilo su un lettore per telefono compatibile con Adobe ID e usa la lettura vocale. Se il DRM la blocca, è il materiale da fare in «mappa» seduta, con il testo davanti.</td></tr>
+    <tr><td>The Future of Luxury CX</td><td>ProQuest</td><td>Di solito ProQuest permette di scaricare i capitoli in PDF entro un limite: scaricali e caricali nel lettore. Altrimenti lettura vocale del browser.</td></tr>
+    <tr><td>Slide e video Blackboard</td><td>online</td><td>I video sono già audio: in palestra. Le slide si mappano.</td></tr>
+  </tbody></table></div>
+  <p class="small muted" style="margin-top:8px">Scegli una voce inglese: una voce italiana su testi inglesi è faticosa. Nell'Assistente c'è anche un lettore: incolli un testo e lo ascolti.</p>
+  <h2>Se devi proprio leggere</h2>
+  <div class="card stack small">
+    <p><b>Leggi e ascolta insieme.</b> Testo davanti e audio a 1,3×: l'audio ti trascina e non ti lascia scivolare.</p>
+    <p><b>In piedi o camminando,</b> mai a letto o sul divano. Mai dopo le 21.</p>
+    <p><b>Leggi con una domanda.</b> Prima di aprire il capitolo scrivi 3 domande a cui deve rispondere.</p>
+    <p><b>Blocchi da 20 minuti,</b> poi 5 di pausa lontano dalla sedia. Due blocchi bastano.</p>
+  </div>
+  <h2>Francese: solo il formato d'esame</h2>
+  <div class="card stack small">
+    <p><b>Con un C1 la lingua c'è già.</b> Il corso è B1. Lavori solo su quello che l'esame premia: formato del mail, lessico business dei 4 temi del libro (spostamenti, risorse umane, marketing, clienti) e la presentazione. Sono 8 sessioni da 45', il martedì sera.</p>
+    <p><b>Il punto debole possibile è il lessico tecnico del libro.</b> Se nella simulazione dell'11 marzo 2024 trovi parole che non conosci, fai una lista per tema. Il libro puoi chiederlo in prestito per un'ora, senza comprarlo.</p>
+    <p><b>Il dizionario cartaceo è ammesso allo scritto.</b> Allenati a scrivere i mail usandolo, per non perdere tempo il giorno dell'esame.</p>
+    <p><b>Per l'orale scegli un tema che studi già.</b> Per esempio la trasformazione di Gucci o la strategia di Bottega Veneta, dai casi di Luxury, così lo stesso lavoro serve a due esami. Su Ferrari usa solo fonti pubbliche. La presentazione la scrivi tu, senza IA: il syllabus non la consente.</p>
+    <p><b>Per il palazzo:</b> le regole con eccezioni (preposizioni au/en/aux, il femminile delle nazionalità) funzionano bene come immagini.</p>
+    <p class="muted">Altre risorse dalla lista del corso: TV5 Monde (esercizi), lyricstraining.com, serie come <i>Dix pour cent</i> nelle sere libere.</p>
+  </div>
+  <h2>Inglese: la prova è scrivere</h2>
+  <div class="card stack small">
+    <p><b>Due parti su tre sono scrittura,</b> e la prima parte comincia da un ascolto. È il tuo terreno: ascolti bene, e ti serve trasformare gli appunti in un testo breve e ben costruito.</p>
+    <p><b>Allenamento della Parte 1:</b> prendi uno degli audio del corso (podcast Accenture, Kellaway, report writing), ascoltalo 2 volte prendendo appunti, scrivi 150–180 parole. Poi «Correggi il mio writing di prova» nell'Assistente. Una volta a settimana dalle feste in poi basta.</p>
+    <p><b>Parte 2:</b> rispondi sempre con parole tue e conta le parole. Copiare dal testo vale zero.</p>
+    <p><b>Gli ultimi 10 giorni:</b> il Non-Attending Mock Exam a tempo (120'), con un timer e senza guardare le soluzioni.</p>
+  </div>
+  <h2>La settimana tipo</h2>
+  <div class="tbl"><table><thead><tr><th></th><th>Mattina</th><th>Giorno</th><th>Sera</th></tr></thead><tbody>
+    <tr><td><b>Lun · Gio</b></td><td>Palestra 6:30 con audio</td><td>Tragitti con audio · stage 9–18</td><td>45' di mappa</td></tr>
+    <tr><td><b>Mar</b></td><td>Palestra con audio</td><td>Come sopra</td><td>Lingue 45' nelle settimane che le prevedono, se no mappa</td></tr>
+    <tr><td><b>Mer</b></td><td>Palestra con audio</td><td>Come sopra</td><td>Casa e spesa, ascolto leggero</td></tr>
+    <tr><td><b>Ven</b></td><td>Palestra con audio</td><td>Come sopra</td><td>Libera, oppure viaggio verso casa (3h di ascolto)</td></tr>
+    <tr><td><b>Sab</b></td><td>3h mappe e palazzo</td><td>Pulizie a turno</td><td>Libera</td></tr>
+    <tr><td><b>Dom</b></td><td>2h giro del palazzo + quiz</td><td>Libera</td><td>Check-in 10'</td></tr>
+  </tbody></table></div>
+  <p class="small muted" style="margin-top:8px">Circa 6 ore di ascolto e 7 di studio attivo a settimana. Le pagine sono circa 1.200 in tutto, Francese e English esclusi.</p>`;
+}
+
+/* ============ ASSISTENTE ============ */
+let sampleFn=null, sampleImg=false, ctl=null, ultimoOut="";
+const AZIONI={
+  mappa:{lab:"Schema per la mappa",tier:"default",p:`Trasforma il materiale in uno schema per una mappa concettuale. Formato: elenco indentato con due spazi per livello, massimo 4 livelli, etichette brevi (max 6 parole), niente frasi lunghe, così che si possa incollare in MindMeister o Xmind. Il nodo centrale è il tema del testo. Mantieni in inglese i termini tecnici del corso e aggiungi la traduzione italiana tra parentesi solo se aiuta. Alla fine, una riga "Da fissare nel palazzo:" con le 5–8 liste o nomi più difficili da ricordare.`},
+  palazzo:{lab:"Immagini per il palazzo",tier:"default",p:`Aiutami a fissare i concetti chiave nel mio palazzo della memoria. Scegli dal materiale i concetti più importanti (al massimo uno per tappa, nell'ordine logico del testo) e per ognuno inventa un'immagine mentale vivida, esagerata, concreta, con movimento e possibilmente buffa, ambientata in quella tappa. Formato per ogni riga: "Tappa — concetto — immagine". Poi una riga finale "Percorso in una frase" che li ripassa tutti.`},
+  quiz:{lab:"Interrogami",tier:"default",p:`Prepara 6 domande d'esame orale su questo materiale: 2 di definizione, 2 di collegamento fra concetti, 2 di applicazione a un caso (anche a un brand del lusso o automotive se il testo lo permette). Per ognuna scrivi sotto "Risposta attesa:" in 2–3 righe. Lingua: italiano, termini tecnici in inglese.`},
+  mail:{lab:"Correggi il mio mail di prova (francese)",tier:"default",libero:true,p:`Il materiale è un mail scritto da me in francese per l'esame (consegna tipica: reclamo, prenotazione, comunicazione professionale, min. 150 parole). Correggilo con la griglia d'esame: formato /2 (mittente, destinatario, oggetto, formula d'apertura tipo "Madame, Monsieur", formula di chiusura tipo "Bien cordialement", firma), contenuto /3, lingua /3. Dai il punteggio per voce, elenca gli errori di lingua con la correzione e una spiegazione breve in italiano, conta le parole, poi riscrivi il mail corretto.`},
+  gramm:{lab:"Esercizi di francese",tier:"default",libero:true,p:`Il materiale indica un argomento di grammatica francese (la studentessa ha già un livello C1: punta alle trappole, non alle basi) (se è vuoto o generico, mescola gli argomenti del corso B1: futur simple, conditionnel présent e passé, ipotesi con "si", avverbi in -ment ed eccezioni, pronomi complemento, relativi semplici e composti (dont, lequel, auquel...), comparativo, impératif, gérondif, subjonctif présent e passé, più passé composé e depuis/il y a/pendant). Crea 8 frasi da completare nello stile dell'esame Bocconi (contesto business, una lacuna per frase, indicazione tra parentesi). Poi una riga vuota, "SOLUZIONI", e le 8 soluzioni con una spiegazione di una riga in italiano.`},
+  writing:{lab:"Correggi il mio writing di prova (inglese)",tier:"default",libero:true,p:`Il materiale è un testo di prova scritto da me in inglese per l'esame Professional English Seminars C1, modalità non frequentanti. Può essere un summary di 150–180 parole scritto dagli appunti di un ascolto, oppure un report o una mail persuasiva di 250–350 parole basati su un articolo, con almeno 3 informazioni dall'articolo. Se in cima c'è la consegna o l'articolo, usali. Strutture del corso da verificare: nutshell statement con la fonte in apertura del summary, BLUF, paragrafi ben costruiti, problem → solution o benefit → action, struttura del report (introduzione, findings, raccomandazioni). Valuta: rispetto della consegna e del numero di parole (contale), parole proprie e non copiate, struttura, chiarezza, lingua C1 (registro, precisione, coesione). Dai un voto indicativo su 4 con motivazione, poi gli errori di lingua con la correzione e una spiegazione breve in italiano, poi i 3 interventi che alzerebbero di più il voto. Non riscrivere il testo intero.`},
+  semplice:{lab:"Spiegamelo semplice",tier:"default",p:`Spiegami il materiale come in un podcast di 3 minuti, in italiano parlato, frasi brevi, senza elenchi puntati, perché lo ascolterò con la sintesi vocale. Comincia dal "perché conta", poi i 3–4 concetti chiave con un esempio ciascuno, poi un riassunto in due frasi.`},
+};
+function vAiuto(){
+  const pal=S.palazzi.map((p,i)=>`<option value="${i}">${esc(p.nome)}</option>`).join("");
+  return `${segStudio("aiuto")}<h2>Assistente di studio</h2>
+  <p class="muted small">Incolla un pezzo di capitolo (o fotografa una pagina) e scegli cosa ti serve. Lavora solo sul testo che gli dai: se il testo non basta, te lo dice.</p>
+  <div class="stack" style="margin-top:12px">
+    <label class="f">Materia<select id="ai-mat">${MATERIE.map(m=>`<option value="${m.id}">${esc(m.nome)}</option>`).join("")}</select></label>
+    <label class="f">Testo<textarea id="ai-txt" placeholder="Incolla qui il testo del capitolo, o i tuoi appunti"></textarea></label>
+    <div id="ai-imgbox" hidden><label class="f">Oppure foto delle pagine<input type="file" id="ai-img" accept="image/*" multiple></label></div>
+    <label class="f">Palazzo (per «Immagini per il palazzo»)<select id="ai-pal">${pal}</select></label>
+    <div class="row">${Object.entries(AZIONI).map(([k,a])=>`<button class="btn" data-ai="${k}">${a.lab}</button>`).join("")}</div>
+    <div class="row"><button class="btn ghost" id="ai-stop" hidden>Ferma</button><button class="btn ghost" id="ai-copy">Copia</button><button class="btn ghost" id="ai-say">Ascolta</button><button class="btn ghost" id="ai-shh">Silenzio</button>
+      <label class="small muted row" style="gap:4px">Velocità <input type="number" id="ai-rate" value="1.2" step="0.1" min="0.6" max="2" style="width:76px"></label></div>
+    <div class="out" id="ai-out" aria-live="polite">${esc(ultimoOut)||'<span class="muted">Qui comparirà la risposta. «Ascolta» legge ad alta voce anche il testo che hai incollato, se la risposta è vuota.</span>'}</div>
+    <p class="small muted" id="ai-note"></p>
+  </div>`;
+}
+async function avviaSample(){
+  try{ if(!window.claude?.use) return; sampleFn=await claude.use("sample");
+    if(sampleFn){const l=await sampleFn.limits?.(); sampleImg=!!l?.images}}catch(e){sampleFn=null}
+  if(vista==="aiuto"||vista==="slide") render();
+}
+async function chiedi(k){
+  const out=document.getElementById("ai-out"), note=document.getElementById("ai-note");
+  if(!sampleFn){note.textContent="L'Assistente non è disponibile in questa visualizzazione. Il lettore ad alta voce funziona lo stesso.";return}
+  const testo=document.getElementById("ai-txt").value.trim();
+  const files=document.getElementById("ai-img")?.files;
+  if(!testo&&!(files&&files.length)&&k!=="gramm"){note.textContent="Incolla un testo o aggiungi una foto, poi scegli l'azione.";return}
+  const m=materia(document.getElementById("ai-mat").value);
+  let extra="";
+  if(k==="palazzo"){const p=S.palazzi[+document.getElementById("ai-pal").value||0]; extra=`\nIl palazzo si chiama "${p.nome}" e le tappe, in ordine, sono: ${p.loci.join("; ")}. Usa solo queste tappe.`}
+  const prompt=`Sei il tutor di una studentessa magistrale di Marketing Management in Bocconi, che sta preparando l'esame "${m.nome}". Studia soprattutto ascoltando, con mappe concettuali e palazzo della memoria.
+${AZIONI[k].libero?"":"Regola: usa SOLO il materiale qui sotto. Non aggiungere fatti, numeri, autori o casi che non ci sono; se il materiale è insufficiente per il compito, dillo chiaramente in una riga."}
+Compito: ${AZIONI[k].p}${extra}
+Rispondi in testo semplice, senza markdown (niente asterischi o cancelletti).
+
+MATERIALE:
+${testo||"(vedi le immagini allegate)"}`;
+  ctl?.abort(); ctl=new AbortController();
+  out.textContent="Sto pensando…"; note.textContent=""; document.getElementById("ai-stop").hidden=false;
+  document.querySelectorAll("[data-ai]").forEach(b=>b.disabled=true);
+  try{
+    const opts={signal:ctl.signal, modelTier:AZIONI[k].tier, onText:u=>{out.textContent=u.text; ultimoOut=u.text}};
+    if(files&&files.length&&sampleImg) opts.images=[...files];
+    const r=await sampleFn(prompt,opts); out.textContent=r.text; ultimoOut=r.text;
+    if(r.truncated) note.textContent="La risposta è stata tagliata: prova con un testo più corto.";
+  }catch(e){
+    if(e?.text){out.textContent=e.text; ultimoOut=e.text}
+    const msg={cancelled:"",not_granted:"Questa pagina non ha il permesso di usare Claude. Puoi darlo dal menu Permessi dell'artifact.",sampling_disabled:"Claude non è disponibile per questo account.",rate_limited:"Troppe richieste in poco tempo: aspetta un minuto.",prompt_too_large:"Il testo è troppo lungo: incolla un capitolo alla volta.",password:"Password errata: riprova, te la richiederà.",refusal:"Claude non ha risposto a questa richiesta: prova a riformularla."}[e?.code];
+    note.textContent=msg??"Qualcosa non è andato: riprova tra poco.";
+    if(e?.code==="not_granted"||e?.code==="sampling_disabled") sampleFn=null;
+  }finally{document.getElementById("ai-stop").hidden=true; document.querySelectorAll("[data-ai]").forEach(b=>b.disabled=false)}
+}
+function parla(t){
+  const note=document.getElementById("ai-note");
+  try{ if(!("speechSynthesis" in window)){note.textContent="Questo browser non ha la sintesi vocale.";return}
+    speechSynthesis.cancel();
+    const rate=+document.getElementById("ai-rate").value||1.2;
+    const parti=t.match(/[^.!?\n]{1,220}[.!?\n]*/g)||[t];
+    const voci=speechSynthesis.getVoices();
+    const ingl=(t.match(/\b(the|and|of|is|to)\b/gi)||[]).length > (t.match(/\b(il|e|di|che|la)\b/gi)||[]).length;
+    const voce=voci.find(v=>v.lang?.startsWith(ingl?"en":"it"));
+    parti.forEach(p=>{const u=new SpeechSynthesisUtterance(p);u.rate=rate;u.lang=ingl?"en-GB":"it-IT";if(voce)u.voice=voce;speechSynthesis.speak(u)});
+  }catch(e){note.textContent="La lettura ad alta voce non è disponibile qui."}
+}
+
+/* ============ CASA E PALESTRA ============ */
+function vCasa(){
+  const w=Math.max(settimana(OGGI),0), lun=w?lunediDi(w):addDays(W1,-7), wk="w"+w, fatte=S.casa[wk]||{};
+  const giorni=[...Array(7)].map((_,i)=>addDays(lun,i));
+  const nGym=giorni.filter(g=>S.palestra[g]).length;
+  let h=`<h2>Palestra</h2><div class="card"><div class="row" style="justify-content:space-between"><b class="num">${nGym} di ${S.palestraTarget} questa settimana</b>
+    <label class="small muted row" style="gap:6px">Obiettivo <input type="number" id="gym-t" min="1" max="7" value="${S.palestraTarget}" style="width:70px"></label></div>
+    <div class="gymdays">${giorni.map(g=>`<button class="tick" data-gym="${g}" aria-pressed="${!!S.palestra[g]}" aria-label="Palestra ${fmtLong(g)}">${GIORNI[parse(g).getDay()].slice(0,2)}</button>`).join("")}</div>
+    <p class="small muted" style="margin-top:8px">Mattina presto, così la sera resta per lo studio. Ogni allenamento è un'ora di ascolto.</p></div>`;
+  h+=`<h2>Pulizie · settimana ${w||0}</h2><div class="card stack">`;
+  S.faccende.forEach((f,i)=>{const chi=S.coinq[(i+w)%S.coinq.length];
+    h+=`<div class="row" style="flex-wrap:nowrap;justify-content:space-between"><div><b>${esc(f)}</b><div class="small muted">tocca a: ${esc(chi)}</div></div><button class="tick" data-casa="${i}" aria-pressed="${!!fatte[i]}" aria-label="${esc(f)} fatto">${fatte[i]?"✓":""}</button></div>`});
+  h+=`<p class="small muted">I turni ruotano ogni lunedì.</p>
+    <label class="f">Coinquiline (separate da virgola)<input type="text" id="coinq" value="${esc(S.coinq.join(", "))}"></label>
+    <label class="f">Faccende (separate da virgola)<input type="text" id="facc" value="${esc(S.faccende.join(", "))}"></label></div>`;
+  h+=`<h2>Palazzi della memoria</h2><p class="small muted">Un luogo che conosci a memoria, percorso sempre nello stesso ordine. Un palazzo per materia, o un'ala per materia.</p><div class="stack" style="margin-top:10px">`;
+  S.palazzi.forEach((p,i)=>{h+=`<div class="card stack"><input type="text" id="pal-n-${i}" data-paln="${i}" value="${esc(p.nome)}" aria-label="Nome del palazzo">
+    <label class="f">Tappe, una per riga<textarea id="pal-l-${i}" data-pall="${i}" style="min-height:120px">${esc(p.loci.join("\n"))}</textarea></label>
+    ${S.palazzi.length>1?`<button class="btn ghost" data-paldel="${i}">Elimina palazzo</button>`:""}</div>`});
+  h+=`<button class="btn ghost" id="pal-add">Aggiungi un palazzo</button></div>
+    <h2>Note</h2><textarea id="note" placeholder="Qualunque cosa: date delle lingue, cose da chiedere in azienda…">${esc(S.note)}</textarea>
+    <h2>Backup</h2><div class="card stack"><p class="small muted">Una copia di tutto: progressi, palazzi, appunti delle slide. Fallo ogni tanto e prima di cambiare telefono.</p>
+    <div class="row"><button class="btn" id="bk-exp">Esporta backup</button><label class="btn ghost" for="bk-imp" style="cursor:pointer">Importa backup</label><input type="file" id="bk-imp" accept="application/json,.json" hidden></div>
+    ${bkInAttesa?`<p class="small">Backup del ${esc(fmtD(bkInAttesa.esportato?.slice(0,10)||OGGI))}: sostituisce i dati attuali.</p><div class="row"><button class="btn" style="background:var(--bad)" id="bk-ok">Conferma: ripristina</button><button class="btn ghost" id="bk-no">Annulla</button></div>`:""}</div>`;
+  return h;
+}
+
+/* ============ SLIDE → DISPENSA ============ */
+// Le slide si leggono nel browser (pdf.js), ogni pagina diventa un'immagine + il suo testo,
+// Claude le legge a gruppi e poi unisce tutto in una lezione ordinata. Si salvano solo gli appunti, non i file.
+const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+let lezioni=[], slMateria="lux", slLavoro=null, slCtl=null, slElimina=null, slAperta=null, slIndice={};
+function segStudio(v){return `<div class="seg" role="group" aria-label="Strumenti di studio"><button data-v="slide" aria-pressed="${v==="slide"}">Slide → dispensa</button><button data-v="aiuto" aria-pressed="${v==="aiuto"}">Testo libero</button></div>`}
+function carScript(src){return new Promise((ok,ko)=>{const s=document.createElement("script");s.src=src;s.onload=ok;s.onerror=()=>ko(new Error("script"));document.head.appendChild(s)})}
+async function pdfjs(){ if(window.pdfjsLib) return window.pdfjsLib;
+  await carScript(PDFJS+"pdf.worker.min.js"); await carScript(PDFJS+"pdf.min.js"); return window.pdfjsLib }
+function aBlob(canvas){return new Promise(ok=>canvas.toBlob(b=>ok(b),"image/jpeg",.75))}
+async function rimpicciolisci(src,w,h){const sc=Math.min(1,1400/Math.max(w,h)), c=document.createElement("canvas");
+  c.width=Math.round(w*sc); c.height=Math.round(h*sc); c.getContext("2d").drawImage(src,0,0,c.width,c.height); return aBlob(c)}
+async function pagineDa(files,log){
+  const out=[];
+  for(const f of files){
+    if(f.type==="application/pdf"||/\.pdf$/i.test(f.name)){
+      const lib=await pdfjs(); const doc=await lib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+      for(let i=1;i<=doc.numPages;i++){ log(`Preparo ${f.name}: pagina ${i} di ${doc.numPages}`);
+        const pg=await doc.getPage(i), v0=pg.getViewport({scale:1}), vp=pg.getViewport({scale:Math.min(2,1400/Math.max(v0.width,v0.height))});
+        const c=document.createElement("canvas"); c.width=vp.width; c.height=vp.height;
+        await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+        const tc=await pg.getTextContent();
+        out.push({n:out.length+1, testo:tc.items.map(t=>t.str).join(" ").replace(/\s+/g," ").trim().slice(0,2500), img:await aBlob(c)}) }
+    } else if(f.type.startsWith("image/")){
+      const bm=await createImageBitmap(f); out.push({n:out.length+1, testo:"", img:await rimpicciolisci(bm,bm.width,bm.height)})
+    }
+  }
+  return out;
+}
+const SL_GRUPPO=`Rispondi con SOLO un oggetto JSON con questa forma:
+{"argomenti":[{"titolo":"...","slide":[3,4],"punti":["..."]}],
+ "definizioni":[{"termine":"...","definizione":"...","slide":3}],
+ "framework":[{"nome":"...","elementi":["..."],"slide":5}],
+ "casi":[{"nome":"brand o azienda","cosa_insegna":"...","slide":6}],
+ "numeri":[{"dato":"...","contesto":"...","slide":7}],
+ "visivi":[{"slide":8,"cosa_mostra":"cosa mostra il grafico, lo schema o l'immagine e qual è il messaggio"}]}
+Liste vuote se non c'è niente.`;
+async function creaLezione(files, titolo, mat){
+  const sample=sampleFn; if(!sample) throw {code:"not_granted"};
+  const m=materia(mat), lim=await sample.limits?.().catch(()=>null), B=Math.max(1,Math.min(lim?.images?.maxCount||5,6));
+  slLavoro={fase:"Preparo le slide…",pct:2,log:""}; render();
+  const pag=await pagineDa(files,t=>{slLavoro.log=t; aggiornaLavoro()});
+  if(!pag.length) throw {code:"vuoto"};
+  const gruppi=[]; for(let i=0;i<pag.length;i+=B) gruppi.push(pag.slice(i,i+B));
+  const parti=[];
+  for(const [gi,g] of gruppi.entries()){
+    slLavoro.fase=`Leggo le slide ${g[0].n}–${g[g.length-1].n} di ${pag.length}`; slLavoro.pct=5+Math.round(gi/gruppi.length*80); aggiornaLavoro();
+    const prompt=`Sei il tutor di una studentessa magistrale di Marketing Management (Bocconi), corso "${m.nome}". Ti do le slide ${g[0].n}–${g[g.length-1].n} della lezione "${titolo}", come immagini in ordine, più il testo estratto da ciascuna (può mancare o essere disordinato: fa fede l'immagine).
+Leggi tutto quello che c'è nell'immagine: titoli, elenchi, grafici e assi, tabelle, schemi, matrici, timeline, foto di prodotti o campagne con le didascalie.
+Le slide spesso hanno solo parole chiave: trasforma ogni parola chiave in una frase completa che spiega il concetto, usando solo ciò che le slide dicono o mostrano. Non aggiungere fatti, dati, autori o casi che non sono nelle slide. Salta copertine, agende, slide di sole foto senza messaggio e ringraziamenti.
+Scrivi in italiano, lasciando in inglese i termini tecnici come nelle slide. Massimo 25 parole per punto.
+${SL_GRUPPO}
+
+TESTO ESTRATTO:
+${g.map(p=>`[slide ${p.n}] ${p.testo||"(nessun testo: leggi l'immagine)"}`).join("\n")}`;
+    slCtl=new AbortController();
+    parti.push(await sample.json(prompt,{images:g.map(p=>p.img),signal:slCtl.signal,modelTier:"default"}));
+  }
+  slLavoro.fase="Metto in ordine la lezione"; slLavoro.pct=88; aggiornaLavoro();
+  const unione=`Sei il tutor di una studentessa magistrale di Marketing Management (Bocconi), corso "${m.nome}". Qui sotto ci sono gli appunti, in JSON, estratti dalle slide della lezione "${titolo}" (${pag.length} slide), a gruppi.
+Uniscili in UNA dispensa chiara da studiare: togli i doppioni, raggruppa per argomento in un ordine logico (non per forza quello delle slide), massimo 8 sezioni e 6 punti per sezione, frasi complete. Tieni i numeri di slide come riferimento. Non aggiungere niente che non sia negli appunti.
+Poi scrivi 8–12 domande d'esame con risposta breve (max 40 parole) e una lista di 5–10 elenchi, nomi o numeri da fissare nel palazzo della memoria.
+Rispondi con SOLO un oggetto JSON:
+{"titolo":"titolo breve della lezione","sintesi":"3-4 frasi","sezioni":[{"titolo":"...","slide":"3–9","punti":["..."]}],"definizioni":[{"termine":"...","definizione":"...","slide":3}],"framework":[{"nome":"...","elementi":["..."],"slide":5}],"casi":[{"nome":"...","cosa_insegna":"...","slide":6}],"numeri":[{"dato":"...","contesto":"...","slide":7}],"visivi":[{"slide":8,"cosa_mostra":"..."}],"domande":[{"q":"...","a":"...","slide":4}],"palazzo":["..."]}
+
+APPUNTI:
+${JSON.stringify(parti)}`;
+  slCtl=new AbortController();
+  const note=await sample.json(unione,{signal:slCtl.signal,modelTier:"complex"});
+  const lez={id:"l"+Date.now().toString(36), materia:mat, titolo:titolo||note.titolo||"Lezione", file:[...files].map(f=>f.name).join(", "), slide:pag.length, creato:OGGI, note};
+  await salvaLezione(lez);
+  S.extra.push({id:"sl-"+lez.id, s:mat, t:"Slide · "+lez.titolo, p:pag.length, fmt:"slide", a:Math.min(16,Math.max(1,settimana(OGGI)||1)), extra:true});
+  salva();
+  return lez;
+}
+function aggiornaLavoro(){const el=document.getElementById("sl-lav"); if(el&&slLavoro) el.innerHTML=lavoroHtml()}
+const lavoroHtml=()=>`<p class="small"><b>${esc(slLavoro.fase)}</b></p><div class="prog" style="margin-top:6px"><i style="width:${slLavoro.pct}%"></i></div><p class="small muted" style="margin-top:4px">${esc(slLavoro.log||"Puoi lasciare la pagina aperta e fare altro.")}</p>`;
+async function salvaLezione(l){
+  lezioni=[...lezioni.filter(x=>x.id!==l.id),l];
+  if(db&&uidCorrente){ await db.collection("data/users/"+uidCorrente+"/slide").doc(l.id).set(JSON.parse(JSON.stringify(l))) }
+  else try{localStorage.setItem("slide-locali",JSON.stringify(lezioni))}catch(e){}
+}
+async function eliminaLezione(id){
+  lezioni=lezioni.filter(l=>l.id!==id); S.extra=S.extra.filter(u=>u.id!=="sl-"+id); delete S.fasi["sl-"+id]; salva();
+  if(db&&uidCorrente) await db.collection("data/users/"+uidCorrente+"/slide").doc(id).delete().catch(()=>{});
+  else try{localStorage.setItem("slide-locali",JSON.stringify(lezioni))}catch(e){}
+}
+async function caricaLezioni(){
+  try{ if(db&&uidCorrente){ const q=await db.collection("data/users/"+uidCorrente+"/slide").get();
+      lezioni=q.docs.map(d=>d.data()).filter(l=>l&&l.note); 
+      const ix=await db.collection("data/users/"+uidCorrente+"/indici").get(); ix.docs.forEach(d=>slIndice[d.id]=d.data());
+    } else { lezioni=JSON.parse(localStorage.getItem("slide-locali")||"[]") }
+  }catch(e){}
+  render();
+}
+async function creaIndice(mat){
+  const ls=lezioni.filter(l=>l.materia===mat); if(ls.length<2||!sampleFn) return;
+  const m=materia(mat);
+  slLavoro={fase:"Riorganizzo tutte le lezioni per argomento",pct:40,log:""}; render();
+  try{
+    const r=await sampleFn.json(`Ecco le dispense, in JSON, delle lezioni del corso "${m.nome}". Costruisci un indice per ARGOMENTI che attraversa le lezioni: 5–12 temi, per ciascuno una sintesi di 2–3 frasi che collega quello che dicono le diverse lezioni, e i rimandi (lezione e slide). Usa solo il contenuto dato.
+Rispondi con SOLO JSON: {"temi":[{"tema":"...","sintesi":"...","rimandi":[{"lezione":"titolo","slide":"3–9"}]}]}
+
+${JSON.stringify(ls.map(l=>({lezione:l.titolo,sintesi:l.note.sintesi,sezioni:l.note.sezioni})))}`,{modelTier:"complex"});
+    slIndice[mat]={materia:mat,creato:OGGI,lezioni:ls.length,temi:r.temi||[]};
+    if(db&&uidCorrente) await db.collection("data/users/"+uidCorrente+"/indici").doc(mat).set(JSON.parse(JSON.stringify(slIndice[mat])));
+  }catch(e){toast("Indice non creato: riprova tra poco")}
+  slLavoro=null; render();
+}
+const rif=n=>n!==undefined&&n!==null&&n!==""?` <span class="sl">sl. ${esc(Array.isArray(n)?n.join(", "):n)}</span>`:"";
+function testoLezione(l){const n=l.note; return [l.titolo, n.sintesi, ...(n.sezioni||[]).flatMap(s=>[s.titolo+".", ...(s.punti||[])])].join("\n")}
+function schemaMappa(l){const n=l.note; return [l.titolo, ...(n.sezioni||[]).flatMap(s=>["  "+s.titolo, ...(s.punti||[]).map(p=>"    "+p)]),
+  ...(n.framework||[]).length?["  Framework",...n.framework.flatMap(f=>["    "+f.nome,...(f.elementi||[]).map(e=>"      "+e)])]:[]].join("\n")}
+function lezioneHtml(l){
+  const n=l.note||{}, aperta=slAperta===l.id;
+  const L=(arr,f)=>(arr||[]).length?arr.map(f).join(""):"";
+  return `<details class="card lez" style="${sc(l.materia)}" ${aperta?"open":""} data-lez="${l.id}"><summary>
+    <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><h3 style="min-width:0">${esc(l.titolo)}</h3><span class="tag num">${l.slide} slide</span></div>
+    <p class="small muted" style="margin-top:4px">${esc(n.sintesi||"")}</p></summary>
+    <div class="row" style="margin-top:10px"><button class="btn ghost sm" data-slsay="${l.id}">Ascolta</button><button class="btn ghost sm" data-slmap="${l.id}">Copia per la mappa</button>
+      ${slElimina===l.id?`<button class="btn sm" style="background:var(--bad)" data-sldel="${l.id}">Conferma: elimina</button>`:`<button class="btn ghost sm" data-sldel0="${l.id}">Elimina</button>`}</div>
+    ${L(n.sezioni,s=>`<h4>${esc(s.titolo)}${rif(s.slide)}</h4><ul>${(s.punti||[]).map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`)}
+    ${(n.definizioni||[]).length?`<h4>Definizioni</h4><ul>${L(n.definizioni,d=>`<li><b>${esc(d.termine)}</b>: ${esc(d.definizione)}${rif(d.slide)}</li>`)}</ul>`:""}
+    ${(n.framework||[]).length?`<h4>Framework</h4><ul>${L(n.framework,f=>`<li><b>${esc(f.nome)}</b>${rif(f.slide)}: ${(f.elementi||[]).map(esc).join(" · ")}</li>`)}</ul>`:""}
+    ${(n.casi||[]).length?`<h4>Casi</h4><ul>${L(n.casi,c=>`<li><b>${esc(c.nome)}</b>: ${esc(c.cosa_insegna)}${rif(c.slide)}</li>`)}</ul>`:""}
+    ${(n.numeri||[]).length?`<h4>Numeri</h4><ul>${L(n.numeri,c=>`<li><b>${esc(c.dato)}</b> ${esc(c.contesto)}${rif(c.slide)}</li>`)}</ul>`:""}
+    ${(n.visivi||[]).length?`<h4>Grafici e immagini</h4><ul>${L(n.visivi,c=>`<li>${esc(c.cosa_mostra)}${rif(c.slide)}</li>`)}</ul>`:""}
+    ${(n.palazzo||[]).length?`<h4>Da fissare nel palazzo</h4><ul>${L(n.palazzo,c=>`<li>${esc(c)}</li>`)}</ul>`:""}
+    ${(n.domande||[]).length?`<h4>Domande d'esame</h4><div class="stack">${L(n.domande,q=>`<details class="flash"><summary>${esc(q.q)}</summary><p class="small" style="margin-top:6px">${esc(q.a)}${rif(q.slide)}</p></details>`)}</div>`:""}
+    <p class="small muted" style="margin-top:12px">Da: ${esc(l.file)} · ${fmtD(l.creato)}. I numeri di slide servono a controllare sull'originale.</p></details>`;
+}
+function vSlide(){
+  const ls=lezioni.filter(l=>l.materia===slMateria).sort((a,b)=>a.creato<b.creato?-1:1), ix=slIndice[slMateria];
+  const mats=MATERIE.filter(m=>!m.lingua);
+  let h=segStudio("slide")+`<h2>Slide → dispensa</h2>
+  <p class="muted small">Carichi le slide di una lezione (PDF o foto). Claude legge ogni slide come immagine, anche grafici, schemi e tabelle, e scrive appunti completi in una dispensa unica per materia. I file non vengono salvati: restano solo gli appunti.</p>
+  <div class="chips" style="margin-top:12px">${mats.map(m=>`<button style="${sc(m.id)}" data-slmat="${m.id}" aria-pressed="${m.id===slMateria}">${esc(m.breve)} ${lezioni.filter(l=>l.materia===m.id).length||""}</button>`).join("")}</div>`;
+  if(slLavoro) h+=`<div class="card" id="sl-lav" style="margin-top:12px">${lavoroHtml()}</div><div class="row" style="margin-top:8px"><button class="btn ghost" id="sl-stop">Ferma</button></div>`;
+  else h+=`<form class="card stack" id="sl-form" style="margin-top:12px">
+    <label class="f">Titolo della lezione<input type="text" id="sl-tit" placeholder="Es. Lezione 6 · Luxury retail"></label>
+    <label class="f">Slide (PDF o immagini, anche più file)<input type="file" id="sl-file" accept="application/pdf,image/*" multiple required></label>
+    <button class="btn" type="submit" ${sampleFn?"":"disabled"}>Crea gli appunti</button>
+    <p class="small muted">${sampleFn?"Una lezione da 40 slide richiede qualche minuto. Se hai un PowerPoint, salvalo prima come PDF.":"Per usarlo serve il permesso di usare Claude in questa pagina (menu Permessi dell'artifact)."}</p></form>`;
+  if(ls.length>=2) h+=`<div class="row" style="margin-top:12px;justify-content:space-between"><b>Indice per argomenti</b><button class="btn ghost" id="sl-idx" ${slLavoro||!sampleFn?"disabled":""}>${ix?"Aggiorna":"Crea"} l'indice (${ls.length} lezioni)</button></div>`;
+  if(ix&&ix.temi?.length) h+=`<div class="card stack" style="margin-top:8px">${ix.temi.map(t=>`<div><b>${esc(t.tema)}</b><p class="small">${esc(t.sintesi)}</p><p class="sl">${(t.rimandi||[]).map(r=>`${esc(r.lezione)}${r.slide?" · sl. "+esc(r.slide):""}`).join(" — ")}</p></div>`).join("")}<p class="small muted">Creato il ${fmtD(ix.creato)} su ${ix.lezioni} lezioni.</p></div>`;
+  const tutte=ls.flatMap(l=>(l.note.domande||[]).map(q=>({...q,lez:l.titolo})));
+  if(tutte.length) h+=`<div class="row" style="margin-top:12px;justify-content:space-between"><b>Ripasso misto · ${tutte.length} domande</b><button class="btn ghost" id="sl-quiz">Pesca 5 domande</button></div><div id="sl-quizbox" class="stack" style="margin-top:8px"></div>`;
+  h+=`<h2>Lezioni · ${esc(materia(slMateria).breve)}</h2><div class="stack">${ls.length?ls.map(lezioneHtml).join(""):`<div class="card muted small">Ancora nessuna lezione. Carica le slide della prima lezione qui sopra: comparirà anche come casella nel Percorso.</div>`}</div>`;
+  return h;
+}
+
+/* ============ GIOCO ============ */
+const TITOLI=[[1,"Matricola in trasferta"],[3,"Pendolare dell'ascolto"],[5,"Cartografa di mappe"],[7,"Custode del palazzo"],[10,"Sopravvissuta alla sessione"],[13,"Laureanda"],[16,"Quasi dottoressa"],[19,"Dottoressa"]];
+const vals=o=>Object.values(o||{});
+function giorniFatti(){return Object.entries(S.fatti||{}).filter(([k,v])=>k!=="prep"&&vals(v).some(Boolean)).map(([k])=>k)}
+function xpTotale(){
+  let x=0;
+  for(const v of vals(S.fatti)) x+=vals(v).filter(Boolean).length*10;
+  x+=vals(S.fasi).reduce((a,f)=>a+f,0)*15;
+  x+=vals(S.tesi).filter(Boolean).length*50 + vals(S.stageFatti).filter(Boolean).length*30;
+  x+=Object.keys(S.superati||{}).length*200;
+  x+=Object.keys(S.palestra||{}).length*10;
+  for(const w of vals(S.casa)) x+=vals(w).filter(Boolean).length*5;
+  x+=vals(S.dadi).reduce((a,n)=>a+n,0)*5;
+  return x;
+}
+const livelloDi=x=>Math.floor(Math.sqrt(x/50))+1, sogliaLiv=l=>50*(l-1)*(l-1);
+const titoloDi=l=>TITOLI.filter(t=>t[0]<=l).pop()[1];
+function serie(){ // giorni consecutivi con almeno un blocco fatto, fino a oggi (o ieri)
+  const set=new Set(giorniFatti()); let d=set.has(OGGI)?OGGI:addDays(OGGI,-1), n=0;
+  while(set.has(d)){n++; d=addDays(d,-1)}
+  return n;
+}
+function caselle(){
+  const L=[];
+  unita().forEach(u=>{ if(!u.a) return;
+    L.push({k:u.l?"lingua":"u",id:u.id,s:u.s,lb:materia(u.s)?.breve||"",t:u.t,due:addDays(lunediDi(u.l?u.a:u.a+1),6),done:fase(u)>=(u.l?1:3),u}) });
+  MATERIE.forEach(m=>L.push({k:"esame",id:"x-"+m.id,s:m.id,lb:m.breve,t:"Esame · "+m.nome,due:m.esame,done:!!S.superati?.[m.id],m}));
+  TESI.forEach(t=>L.push({k:"tesi",id:t.id,lb:"Tesi",t:t.t,x:t.x,due:scadTesi(t)||"2027-06-30",done:!!S.tesi?.[t.id]}));
+  STAGE.forEach(t=>L.push({k:"stage",id:t.id,lb:"Stage",t:t.t,x:t.x,due:addDays(fineStage(),t.off),done:!!S.stageFatti?.[t.id]}));
+  const ord={u:0,lingua:1,stage:2,tesi:3,esame:4};
+  L.sort((a,b)=>a.due<b.due?-1:a.due>b.due?1:ord[a.k]-ord[b.k]);
+  return [{k:"start",id:"start",lb:"Partenza",t:"Primo giorno di stage",due:W1,done:true}, ...L, {k:"laurea",id:"laurea",lb:"Laurea",t:"Laurea · luglio 2027",due:"2027-07-31",done:false}];
+}
+const MEDAGLIE=[
+  ["Primo passo","Il primo blocco spuntato",c=>c.giorni>=1],
+  ["Prima mappa","Una mappa completata",c=>c.mappe>=1],
+  ["Architetta del palazzo","10 blocchi fissati nel palazzo",c=>c.palazzo>=10],
+  ["Una settimana di fila","7 giorni consecutivi",c=>c.serie>=7],
+  ["Inarrestabile","21 giorni consecutivi",c=>c.serie>=21],
+  ["Atleta","Obiettivo palestra raggiunto in una settimana",c=>c.gymWeek],
+  ["Casa splendente","10 faccende fatte",c=>c.faccende>=10],
+  ["Avanti tutta","3 caselle avanti al piano",c=>c.avanti>=3],
+  ["Dado fortunato","Hai tirato un 6",c=>c.sei],
+  ["Primo esame","Il primo esame superato",c=>c.superati>=1],
+  ["Sessione chiusa","Tutti e 6 gli esami superati",c=>c.superati>=6],
+  ["Relatrice ingaggiata","Richiesta tesi inviata",c=>!!S.tesi?.t4b],
+  ["Titolo depositato","Conseguimento Titolo avviato",c=>!!S.tesi?.t5b],
+  ["Bozza completa","Checkpoint 4 superato",c=>!!S.tesi?.t11],
+];
+function contesto(){
+  const C=caselle(), fatte=C.filter((c,i)=>i>0&&c.k!=="laurea"&&c.done).length, attese=C.filter((c,i)=>i>0&&c.k!=="laurea"&&c.due<OGGI).length;
+  const gymWeek=[...Array(Math.max(settimana(OGGI),1))].some((_,i)=>{const l=lunediDi(i+1);return [...Array(7)].filter((_,j)=>S.palestra?.[addDays(l,j)]).length>=S.palestraTarget});
+  return {C,fatte,attese,avanti:fatte-attese,giorni:giorniFatti().length,mappe:unita().filter(u=>!u.l&&fase(u)>=2).length,palazzo:unita().filter(u=>!u.l&&fase(u)>=3).length,
+    serie:serie(),gymWeek,faccende:vals(S.casa).reduce((a,w)=>a+vals(w).filter(Boolean).length,0),sei:vals(S.dadi).includes(6),superati:Object.keys(S.superati||{}).length};
+}
+let selCasella=null; var prevXp=null, prevLiv=null;
+const PEDINA=`<svg class="pawn" viewBox="0 0 24 30" aria-hidden="true"><circle cx="12" cy="7" r="5.5" fill="var(--accent)" stroke="#fff" stroke-width="1.5"/><path d="M6 27 L8.5 14 h7 L18 27 Z" fill="var(--accent)" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/><rect x="4" y="25.5" width="16" height="3.5" rx="1.5" fill="var(--accent)" stroke="#fff" stroke-width="1.2"/></svg>`;
+function renderLvl(){
+  const x=xpTotale(), l=livelloDi(x), a=sogliaLiv(l), b=sogliaLiv(l+1), sr=serie();
+  document.getElementById("lvl").innerHTML=`<span class="eyebrow">Liv. ${l} · ${x} XP</span><span class="big num">${sr}</span><span class="sub">${sr===1?"giorno":"giorni"} di fila</span><span class="xpbar" style="display:block" title="${esc(titoloDi(l))}"><i style="width:${Math.round((x-a)/(b-a)*100)}%"></i></span><span class="tt">${esc(titoloDi(l))}</span>`;
+  if(prevXp!==null && x>prevXp){ toast(`+${x-prevXp} XP`); if(l>prevLiv) festa(l) }
+  prevXp=x; prevLiv=l;
+}
+function festa(l){
+  const o=document.createElement("div"); o.className="lvlup";
+  o.innerHTML=`<div class="box"><p class="small muted">Livello raggiunto</p><div class="big num">${l}</div><h3 style="margin-top:6px">${esc(titoloDi(l))}</h3><button class="btn" style="margin-top:16px">Avanti</button></div>`;
+  o.addEventListener("click",()=>o.remove()); document.body.appendChild(o); coriandoli();
+}
+function coriandoli(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c=document.createElement("canvas"); c.className="confetti"; document.body.appendChild(c);
+  const W=c.width=innerWidth, H=c.height=innerHeight, x=c.getContext("2d");
+  const cs=getComputedStyle(document.documentElement), col=["--accent","--gold","--ink","--c-tm","--c-lux"].map(v=>cs.getPropertyValue(v).trim()||"#888");
+  const P=[...Array(90)].map(()=>({x:W/2,y:H/3,vx:(Math.random()-.5)*12,vy:Math.random()*-12-3,r:Math.random()*6+3,c:col[Math.floor(Math.random()*col.length)],a:Math.random()*6}));
+  let t=0; (function f(){ x.clearRect(0,0,W,H); P.forEach(p=>{p.vy+=.35;p.x+=p.vx;p.y+=p.vy;p.a+=.2;x.fillStyle=p.c;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);x.restore()});
+    if(++t<90) requestAnimationFrame(f); else c.remove() })();
+}
+function vPercorso(){
+  const K=contesto(), C=K.C, n=C.length, cols=4, rows=Math.ceil(n/cols), pawn=Math.min(K.fatte,n-1), ghost=Math.min(K.attese,n-1);
+  const pos=i=>{const r=Math.floor(i/cols), c=r%2?cols-1-i%cols:i%cols; return [r,c]};
+  const pts=C.map((_,i)=>{const [r,c]=pos(i);return `${(c+.5)/cols*100},${(r+.5)/rows*100}`}).join(" ");
+  let h=`<h2>Il percorso fino alla laurea</h2>
+  <div class="stats"><div><b class="num">${pawn}</b><span>casella su ${n-1}</span></div><div><b class="num" style="color:${K.avanti>=0?"var(--ok)":"var(--bad)"}">${K.avanti>0?"+":""}${K.avanti}</b><span>${K.avanti>=0?"avanti":"indietro"} rispetto al piano</span></div><div><b class="num">${K.superati}/6</b><span>esami superati</span></div></div>
+  <p class="small muted" style="margin-top:12px">Ogni tappa chiusa è una casella. «OGGI» è dove vuole il piano.</p>
+  <div class="board" style="grid-template-rows:repeat(${rows},auto)"><svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" vector-effect="non-scaling-stroke"/></svg>`;
+  C.forEach((c,i)=>{const [r,co]=pos(i);
+    h+=`<button class="cell k-${c.k} ${c.done&&c.k!=="start"?"done":""} ${i===ghost&&ghost!==pawn?"ghost":""} ${selCasella===i?"sel":""}" style="grid-row:${r+1};grid-column:${co+1};${c.s?sc(c.s):c.k==="tesi"?"--sc:var(--accent)":c.k==="stage"?"--sc:var(--muted)":""}" data-cas="${i}" aria-label="Casella ${i}: ${esc(c.t)}">
+      <span class="no num">${i}</span><span class="lb">${esc(c.lb)}</span><span class="dt">${c.k==="laurea"?"LUGLIO":c.k==="esame"?"ESAME "+fmtD(c.due).toUpperCase():fmtD(c.due).toUpperCase()}</span>${i===pawn?PEDINA:""}</button>`});
+  h+=`</div>`;
+  if(selCasella!==null && C[selCasella]) h+=schedaCasella(C[selCasella]);
+  const oggiOk=vals(S.fatti?.[OGGI]).some(Boolean), dado=S.dadi?.[OGGI];
+  h+=`<h2>Il dado del giorno</h2><div class="card row" style="flex-wrap:nowrap;gap:14px"><button class="die num" id="dado" ${dado||!oggiOk?"disabled":""} aria-label="Tira il dado">${dado||"?"}</button>
+    <p class="small">${dado?`Oggi hai tirato ${dado}: +${dado*5} XP. Il prossimo tiro domani.`:oggiOk?"Hai chiuso almeno un blocco oggi: tira il dado per un bonus da 5 a 30 XP.":"Si sblocca quando spunti il primo blocco di oggi nella scheda Oggi."}</p></div>`;
+  const on=MEDAGLIE.filter(m=>m[2](K)).length;
+  h+=`<h2>Medaglie · ${on}/${MEDAGLIE.length}</h2><div class="badges">${MEDAGLIE.map(([t,d,f])=>`<div class="badge ${f(K)?"on":""}"><b>${esc(t)}</b><span class="small muted">${esc(d)}</span></div>`).join("")}</div>
+  <h2>Come si fanno punti</h2><div class="card small stack">
+    <p>Blocco della giornata <b>+10</b> · fase di un blocco di studio <b>+15</b> · tappa della tesi <b>+50</b> · tappa dello stage <b>+30</b> · esame superato <b>+200</b> · palestra <b>+10</b> · faccenda di casa <b>+5</b> · dado <b>+5 per punto</b></p>
+    <p class="muted">Livelli: ${TITOLI.map(t=>`${t[0]} ${t[1]}`).join(" · ")}</p></div>`;
+  return h;
+}
+function schedaCasella(c){
+  let a="";
+  if(c.u) a=`<div style="margin-top:8px">${unitRow(c.u)}</div>`;
+  else if(c.k==="esame"){const ok=S.superati?.[c.m.id];
+    a=ok?`<p style="margin-top:8px"><b>Superato${ok.voto?` con ${esc(ok.voto)}`:""}.</b></p><button class="btn ghost" data-nonsup="${c.m.id}" style="margin-top:6px">Annulla</button>`
+      :`<form class="row" data-sup="${c.m.id}" style="margin-top:8px;flex-wrap:nowrap"><input type="text" id="voto-${c.m.id}" name="voto" placeholder="${c.m.lingua?"Superato":"Voto, es. 28"}" style="max-width:150px"><button class="btn" type="submit">Superato</button></form>`}
+  else if(c.k==="tesi"||c.k==="stage") a=`<div class="row" style="margin-top:8px"><button class="btn ${c.done?"ghost":""}" data-${c.k==="tesi"?"tesi":"stagef"}="${c.id}">${c.done?"Segna da fare":"Fatto"}</button></div>`;
+  return `<div class="card sheet" style="${c.s?sc(c.s):""}"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span class="tag">${esc(c.lb)} · ${c.k==="laurea"?"luglio 2027":fmtLong(c.due)}</span><button class="btn ghost" data-cas="-1" aria-label="Chiudi">×</button></div>
+    <h3 style="margin-top:8px">${esc(c.t)}</h3>${c.x?`<p class="small muted" style="margin-top:4px">${esc(c.x)}</p>`:""}${c.k==="laurea"?`<p class="small muted" style="margin-top:4px">L'ultima casella. Ci arrivi chiudendo tutte le altre.</p>`:""}${a}</div>`;
+}
+
+/* ============ RENDER E EVENTI ============ */
+function render(){
+  renderTesta();
+  const v=document.getElementById("view");
+  renderLvl();
+  v.innerHTML={slide:vSlide,percorso:vPercorso,oggi:vOggi,piano:vPiano,materie:vMaterie,metodo:vMetodo,aiuto:vAiuto,casa:vCasa}[vista]();
+  const box=document.getElementById("ai-imgbox"); if(box) box.hidden=!sampleImg;
+}
+document.addEventListener("click",async e=>{
+  const t=e.target.closest("button"); if(!t) return;
+  const d=t.dataset;
+  if(d.v){vista=d.v; giornoVisto=OGGI; try{history.replaceState(null,"","#"+vista)}catch(_){}; render(); scrollTo(0,0); return}
+  if(d.slmat){slMateria=d.slmat; slAperta=null; if(vista!=="slide"){vista="slide"; try{history.replaceState(null,"","#slide")}catch(_){}} render(); return}
+  if(d.sldel0){slElimina=d.sldel0; slAperta=d.sldel0; render(); return}
+  if(d.sldel){await eliminaLezione(d.sldel); slElimina=null; render(); toast("Lezione eliminata"); return}
+  if(d.slsay){const l=lezioni.find(x=>x.id===d.slsay); if(l) parla(testoLezione(l)); return}
+  if(d.slmap){const l=lezioni.find(x=>x.id===d.slmap); if(!l) return; try{await navigator.clipboard.writeText(schemaMappa(l)); toast("Schema copiato: incollalo in MindMeister o Xmind")}catch(_){toast("Copia non riuscita su questo dispositivo")} return}
+  if(t.id==="sl-stop"){slCtl?.abort(); return}
+  if(t.id==="sl-idx"){creaIndice(slMateria); return}
+  if(t.id==="sl-quiz"){const ls=lezioni.filter(l=>l.materia===slMateria), qs=ls.flatMap(l=>(l.note.domande||[]).map(q=>({...q,lez:l.titolo})));
+    const pick=qs.sort(()=>Math.random()-.5).slice(0,5);
+    document.getElementById("sl-quizbox").innerHTML=pick.map(q=>`<details class="flash"><summary>${esc(q.q)}</summary><p class="small" style="margin-top:6px">${esc(q.a)} <span class="sl">${esc(q.lez)}${q.slide?" · sl. "+esc(q.slide):""}</span></p></details>`).join(""); return}
+  if(d.cas!==undefined){selCasella=+d.cas<0?null:+d.cas; render(); return}
+  if(d.nonsup){delete S.superati[d.nonsup]; salva(); render(); return}
+  if(t.id==="dado"){if(S.dadi?.[OGGI]) return; S.dadi=S.dadi||{}; let k=0; const el=t;
+    const giro=setInterval(()=>{el.textContent=1+Math.floor(Math.random()*6); if(++k>10){clearInterval(giro); const n=1+Math.floor(Math.random()*6); S.dadi[OGGI]=n; salva(); render(); if(n===6) coriandoli()}},70); return}
+  if(d.g){giornoVisto=addDays(giornoVisto,+d.g); render(); return}
+  if(d.fatto){const s=giornoVisto; S.fatti[s]=S.fatti[s]||{}; S.fatti[s][d.fatto]=!S.fatti[s][d.fatto]; salva(); render(); return}
+  if(d.prep){S.fatti.prep=S.fatti.prep||{}; S.fatti.prep[d.prep]=!S.fatti.prep[d.prep]; salva(); render(); return}
+  if(d.u){const cur=S.fasi[d.u]||0, f=+d.f; S.fasi[d.u]= cur>=f ? f-1 : f; salva();
+    const det=t.closest("details"); materiaAperta=det?.dataset.mat||materiaAperta; render(); return}
+  if(d.stagef){S.stageFatti=S.stageFatti||{}; S.stageFatti[d.stagef]=!S.stageFatti[d.stagef]; salva(); render(); return}
+  if(d.tesi){S.tesi=S.tesi||{}; S.tesi[d.tesi]=!S.tesi[d.tesi]; salva(); render(); return}
+  if(d.wcasa){S.weekendCasa=S.weekendCasa||{}; if(S.weekendCasa[d.wcasa]) delete S.weekendCasa[d.wcasa]; else S.weekendCasa[d.wcasa]=true; salva(); render(); return}
+  if(d.natale){S.natale=d.natale; salva(); render(); return}
+  if(d.gym){S.palestra[d.gym]=!S.palestra[d.gym]; if(!S.palestra[d.gym]) delete S.palestra[d.gym]; salva(); render(); return}
+  if(d.casa){const wk="w"+Math.max(settimana(OGGI),0); S.casa[wk]=S.casa[wk]||{}; S.casa[wk][d.casa]=!S.casa[wk][d.casa]; salva(); render(); return}
+  if(d.paldel){S.palazzi.splice(+d.paldel,1); salva(); render(); return}
+  if(d.del){S.extra=S.extra.filter(u=>u.id!==d.del); delete S.fasi[d.del]; salva(); render(); toast("Materiale tolto"); return}
+  if(d.ai){chiedi(d.ai); return}
+  if(t.id==="ai-stop"){ctl?.abort(); return}
+  if(t.id==="ai-say"){const o=ultimoOut||document.getElementById("ai-txt").value; if(o.trim()) parla(o); return}
+  if(t.id==="ai-shh"){try{speechSynthesis.cancel()}catch(_){}; return}
+  if(t.id==="ai-copy"){const o=document.getElementById("ai-out").textContent;
+    try{await navigator.clipboard.writeText(o); toast("Copiato")}catch(_){const r=document.createRange();r.selectNodeContents(document.getElementById("ai-out"));const s=getSelection();s.removeAllRanges();s.addRange(r);toast("Testo selezionato: copialo")} return}
+  if(t.id==="pal-add"){S.palazzi.push({nome:"Nuovo palazzo",loci:[]}); salva(); render(); return}
+  if(t.id==="ics"){scaricaIcs(); return}
+  if(t.id==="bk-exp"){esportaBackup(); return}
+  if(t.id==="bk-ok"){ripristinaBackup(); return}
+  if(t.id==="bk-no"){bkInAttesa=null; render(); return}
+});
+document.addEventListener("submit",e=>{
+  if(e.target.id==="sl-form"){e.preventDefault(); const files=document.getElementById("sl-file").files; if(!files.length) return;
+    const tit=document.getElementById("sl-tit").value.trim()||files[0].name.replace(/\.[^.]+$/,"");
+    creaLezione(files,tit,slMateria).then(l=>{slLavoro=null; slAperta=l.id; render(); coriandoli(); toast("Dispensa pronta")})
+      .catch(err=>{slLavoro=null; render(); const c=err?.code;
+        toast(c==="cancelled"?"Fermato":c==="vuoto"?"Nessuna pagina leggibile nei file":c==="not_granted"?"Serve il permesso di usare Claude":c==="rate_limited"?"Troppe richieste: riprova tra un minuto":c==="password"?"Password errata: riprova":c==="refusal"?"Claude non ha risposto: prova con meno slide":c==="invalid_json"?"Risposta incompleta: prova con meno slide alla volta":err?.message==="script"?"Non riesco a caricare il lettore PDF: controlla la connessione":"Qualcosa non è andato: riprova")});
+    render(); return}
+  const sp=e.target.closest("form[data-sup]");
+  if(sp){e.preventDefault(); S.superati=S.superati||{}; S.superati[sp.dataset.sup]={voto:String(new FormData(sp).get("voto")||"").trim(),il:OGGI}; salva(); render(); coriandoli(); return}
+  const f=e.target.closest("form[data-add]"); if(!f) return; e.preventDefault();
+  const s=f.dataset.add, fd=new FormData(f);
+  S.extra.push({id:"x"+Date.now().toString(36), s, t:String(fd.get("t")).trim(), p:+fd.get("p")||null, fmt:String(fd.get("f")), a:Math.min(16,Math.max(1,+fd.get("a")||1)), extra:true});
+  materiaAperta=s; salva(); render(); toast("Aggiunto al piano");
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="gym-t"){S.palestraTarget=Math.min(7,Math.max(1,+t.value||4)); salva(); render()}
+  if(t.id==="coinq"){const v=t.value.split(",").map(x=>x.trim()).filter(Boolean); if(v.length){S.coinq=v; salva(); render()}}
+  if(t.id==="facc"){const v=t.value.split(",").map(x=>x.trim()).filter(Boolean); if(v.length){S.faccende=v; salva(); render()}}
+  if(t.dataset.paln){S.palazzi[+t.dataset.paln].nome=t.value.trim()||"Palazzo"; salva()}
+  if(t.dataset.pall){S.palazzi[+t.dataset.pall].loci=t.value.split("\n").map(x=>x.trim()).filter(Boolean); salva()}
+  if(t.id==="note"){S.note=t.value; salva()}
+  if(t.id==="bk-imp"&&t.files?.[0]){const r=new FileReader(); r.onload=()=>{try{const b=JSON.parse(r.result); if(b.app!=="winter-arc"||!b.stato) throw 0; bkInAttesa=b; render()}catch(_){toast("Questo file non è un backup di Winter arc")}}; r.readAsText(t.files[0])}
+  if(t.id==="fineStage"||t.id==="dopoStage"){S[t.id]=t.value; salva(); render()}
+  if(t.id==="consegna"||t.id==="prenotazione"){S[t.id]=t.value; salva(); render()}
+});
+document.addEventListener("toggle",e=>{if(e.target.dataset?.lez&&e.target.open) slAperta=e.target.dataset.lez},true);
+document.addEventListener("toggle",e=>{if(e.target.dataset?.mat&&e.target.open) materiaAperta=e.target.dataset.mat},true);
+
+async function scaricaIcs(){
+  const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z";
+  const ev=[];
+  MATERIE.forEach(m=>{const d=m.esame.replace(/-/g,""), d2=addDays(m.esame,1).replace(/-/g,"");
+    ev.push(["BEGIN:VEVENT",`UID:esame-${m.id}@sessione-inverno`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${d}`,`DTEND;VALUE=DATE:${d2}`,`SUMMARY:ESAME ${m.nome}`,
+      "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Esame tra una settimana: chiedi il permesso in azienda","TRIGGER:-P7D","END:VALARM","END:VEVENT"].join("\r\n"));
+    const r=RIPASSO[m.id]; ev.push(["BEGIN:VEVENT",`UID:ripasso-${m.id}@sessione-inverno`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${r[0].replace(/-/g,"")}`,`DTEND;VALUE=DATE:${addDays(r[1],1).replace(/-/g,"")}`,`SUMMARY:Ripasso ${m.breve}`,"TRANSP:TRANSPARENT","END:VEVENT"].join("\r\n"));
+  });
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Sessione d'inverno//IT","CALSCALE:GREGORIAN",...ev,"END:VCALENDAR"].join("\r\n");
+  try{const dl=await claude?.use?.("downloads"); if(!dl){toast("Download non disponibile qui");return}
+    await dl.save({filename:"esami-inverno.ics",data:new Blob([ics],{type:"text/calendar"})}); toast("Calendario pronto");
+  }catch(e){toast("Download annullato")}
+}
+
+render();
+avviaDb().then(caricaLezioni); avviaSample();
+setInterval(()=>{const n=iso(new Date()); if(n!==OGGI){if(giornoVisto===OGGI) giornoVisto=n; OGGI=n; render()}},60000);
+</script>
+
+</body>
+</html>
