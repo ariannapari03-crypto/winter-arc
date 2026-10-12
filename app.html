@@ -313,7 +313,7 @@ const MATERIE = [
 function blocchi(prefix, subj, fonte, fmt, tot, n, a, base){
   const out=[], per=Math.ceil(tot/n);
   for(let i=0;i<n;i++){const da=i*per+1, a2=Math.min(tot,(i+1)*per);
-    out.push({id:prefix+(i+1), s:subj, t:`${fonte} · ${base?base[i]:"pp. "+da+"–"+a2}`, p:a2-da+1, fmt, a:Array.isArray(a)?a[i]:a});}
+    out.push({id:prefix+(i+1), s:subj, t:`${fonte} · ${base?base[i]:"≈ pp. "+da+"–"+a2}`, p:a2-da+1, fmt, a:Array.isArray(a)?a[i]:a});}
   return out;
 }
 const UNITA_BASE = [
@@ -325,7 +325,19 @@ const UNITA_BASE = [
   {id:"lx2",s:"lux",t:"Playing to Win · cap. 1 e 3",p:19,fmt:"stampato",a:6},
   {id:"lx3",s:"lux",t:"Verganti (paper) + report Bain e BCG",p:12,fmt:"stampato",a:6},
   {id:"lx4",s:"lux",t:"Casi: Bottega Veneta, Gucci, Ferrari, Kering, Zegna, Alo",p:21,fmt:"stampato",a:6},
-  ...blocchi("fl","lux","The Future of Luxury CX","ProQuest online",342,10,[6,6,7,7,7,7,8,8,8,8]),
+  // The Future of Luxury CX per capitoli (Kogan Page 2024). Pagine dei cap. 1, 2, 5, 6, 7 dal catalogo Bocconi; le altre approssimate
+  {id:"fx1",s:"lux",t:"Luxury CX · cap. 1 The alchemy of luxury: brand identity and value creation",p:15,fmt:"ProQuest online",a:6},
+  {id:"fx2",s:"lux",t:"Luxury CX · cap. 2 (Un)setting the boundaries: the world of luxury and its protagonists",p:37,fmt:"ProQuest online",a:6},
+  {id:"fx3",s:"lux",t:"Luxury CX · cap. 3–4 Luxury authenticity · luxury, arts and culture",p:30,fmt:"ProQuest online",a:6},
+  {id:"fx4",s:"lux",t:"Luxury CX · cap. 5 Experience-led luxury strategies (prima metà)",p:25,fmt:"ProQuest online",a:7},
+  {id:"fx5",s:"lux",t:"Luxury CX · cap. 5 Experience-led luxury strategies (seconda metà)",p:24,fmt:"ProQuest online",a:7},
+  {id:"fx6",s:"lux",t:"Luxury CX · cap. 6 Seamless retail: bridging digital and physical (prima metà)",p:23,fmt:"ProQuest online",a:7},
+  {id:"fx7",s:"lux",t:"Luxury CX · cap. 6 Seamless retail: bridging digital and physical (seconda metà)",p:22,fmt:"ProQuest online",a:7},
+  {id:"fx8",s:"lux",t:"Luxury CX · cap. 7 How to build a 360° view of the customer",p:17,fmt:"ProQuest online",a:8},
+  {id:"fx9",s:"lux",t:"Luxury CX · cap. 8 CRM: tendenze emergenti e relazioni personalizzate",p:35,fmt:"ProQuest online",a:8},
+  {id:"fx10",s:"lux",t:"Luxury CX · cap. 9 How to optimize spend and evaluate success",p:35,fmt:"ProQuest online",a:8},
+  {id:"fx11",s:"lux",t:"Luxury CX · cap. 10 New technologies and the future of customer experience",p:35,fmt:"ProQuest online",a:8},
+  {id:"fx12",s:"lux",t:"Luxury CX · cap. 11 e seguenti: supply chain, trasparenza ed etica, chiusura",p:38,fmt:"ProQuest online",a:8},
   {id:"lx5",s:"lux",t:"Slide, video obbligatori e letture su Blackboard (corso 20671)",p:null,fmt:"Blackboard",a:9},
   // Francese (cod. 20372, B1 business). Livello di partenza: EsaBac C1, niente libro: si lavora sul formato d'esame
   {id:"g1",s:"fr",l:1,t:"Ripasso veloce: dispense 1–2 e Rappel grammatical, solo per il lessico business",p:null,fmt:"PDF",a:2},
@@ -770,6 +782,7 @@ function vMetodo(){
     <div class="step"><div><b>Palazzo (P)</b><p class="small muted">Liste, framework e nomi (es. le leve del category management, i casi Gucci/Bottega Veneta/Ferrari) vanno nelle tappe del palazzo. Un palazzo diverso per materia, o un'ala diversa. Le tappe le scrivi nella scheda Altro; l'Assistente propone le immagini.</p></div></div>
     <div class="step"><div><b>Ripassa (R)</b><p class="small muted">Da quando fai la mappa, l'app ti programma i ripassi: dopo circa 1, 3, 7, 14 e 30 giorni. Se non ricordavi tornano prima, se ricordavi bene si allontanano, e l'ultimo cade sempre 2 giorni prima dell'esame. Ogni ripasso dura circa 5 minuti: giro del palazzo a mente e 2 domande a voce. Al terzo ripasso andato bene il blocco diventa R da solo.</p></div></div>
   </div>
+  <p class="small muted" style="margin-top:12px"><b>Blocchi a pagine (≈):</b> sono indicativi. Chiudi sempre a fine paragrafo o capitolo, anche se sfori di qualche pagina, e riparti da lì il blocco dopo.</p>
   <h2>Trasformare i materiali in audio</h2>
   <div class="tbl"><table><thead><tr><th>Materiale</th><th>Formato</th><th>Come ascoltarlo</th></tr></thead><tbody>
     <tr><td>Go to Market · paper B2B · casi e testi Luxury</td><td>stampato</td><td>Fotografa le pagine con un'app che fa OCR e legge ad alta voce (ElevenReader, Speechify o Adobe Scan + lettore). Fallo il weekend, per la settimana dopo.</td></tr>
