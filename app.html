@@ -557,7 +557,8 @@ function blocchiGiorno(s){
 const MOTTI=["Disciplina, non motivazione.","Un blocco alla volta.","Il lavoro di oggi è l'esame di gennaio.","Nessuno lo vede. Tu sì.","Pochi minuti, ogni giorno.","Fai la cosa difficile per prima.","Silenzio, cuffie, avanti.","Costante batte intenso.","Il percorso si fa una casella per volta.","Prima la mappa, poi il mondo."];
 /* ============ PALAZZI PER MATERIA ============ */
 // Ogni materia ha il suo palazzo; quando un blocco arriva a P gli si assegnano le prossime tappe libere.
-const PAL_PROPOSTI=[["Casa a Milano","eb"],["Bocconi","b2b"],["Milano · Quadrilatero della moda","lux"],["Casa a Maranello","fr","en"]];
+// Assegnazione scelta dalla studentessa: chi ha bisogno di più tappe prende i luoghi più grandi.
+const PAL_PROPOSTI=[["Scuola di ballo","eb"],["Palestra Vanilla","b2b"],["Campus Bocconi","lux"],["Casa a Milano","fr","en"],["Casa a Maranello"]];
 const nuovoPid=()=>"p"+Math.random().toString(36).slice(2,8);
 const palDaPid=pid=>S.palazzi.find(p=>p.id===pid);
 const palDi=mid=>palDaPid(S.palMat?.[mid]);
@@ -565,14 +566,17 @@ function prossimaTappa(pid){return 1+Math.max(0,...Object.values(S.tappe||{}).fi
 function avviaPalazzi(){
   let cambiato=false; S.palMat=S.palMat||{}; S.tappe=S.tappe||{};
   S.palazzi.forEach(p=>{if(!p.id){p.id=nuovoPid(); cambiato=true}});
-  if(!S.palV){ // prima volta: i palazzi proposti, senza toccare quelli già scritti
+  if((S.palV||0)<2){ // palazzi per materia: campus intero, scuola di ballo, palestra; niente Quadrilatero
+    const trova=n=>S.palazzi.find(x=>x.nome.toLowerCase()===n.toLowerCase());
+    const bocc=trova("Bocconi"); if(bocc && !trova("Campus Bocconi")) bocc.nome="Campus Bocconi";
+    const quad=trova("Milano · Quadrilatero della moda"); if(quad && !quad.loci.length) S.palazzi.splice(S.palazzi.indexOf(quad),1);
     if(S.palazzi[0] && !S.palMat.tm) S.palMat.tm=S.palazzi[0].id;
     for(const [nome,...mats] of PAL_PROPOSTI){
-      let p=S.palazzi.find(x=>x.nome.toLowerCase()===nome.toLowerCase());
-      if(!p){p={id:nuovoPid(),nome,loci:[]}; S.palazzi.push(p)}
-      mats.forEach(m=>{if(!S.palMat[m]) S.palMat[m]=p.id});
+      let p=trova(nome); if(!p){p={id:nuovoPid(),nome,loci:[]}; S.palazzi.push(p)}
+      mats.forEach(m=>S.palMat[m]=p.id);
     }
-    S.palV=1; cambiato=true;
+    for(const u of unita()) if(S.tappe[u.id] && S.tappe[u.id].pid!==S.palMat[u.s]) delete S.tappe[u.id];
+    S.palV=2; cambiato=true;
   }
   const daAssegnare=unita().filter(u=>!u.l && fase(u)>=3 && !S.tappe[u.id] && palDi(u.s)).sort((x,y)=>(x.a||99)-(y.a||99));
   for(const u of daAssegnare){const pid=S.palMat[u.s], k=Math.min(8,Math.max(4,Math.ceil((u.p||30)/6))), da=prossimaTappa(pid);
