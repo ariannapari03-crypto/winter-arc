@@ -558,7 +558,7 @@ const MOTTI=["Disciplina, non motivazione.","Un blocco alla volta.","Il lavoro d
 /* ============ PALAZZI PER MATERIA ============ */
 // Ogni materia ha il suo palazzo; quando un blocco arriva a P gli si assegnano le prossime tappe libere.
 // Assegnazione scelta dalla studentessa: chi ha bisogno di più tappe prende i luoghi più grandi.
-const PAL_PROPOSTI=[["Scuola di ballo","eb"],["Palestra Vanilla","b2b"],["Campus Bocconi","lux"],["Casa a Milano","fr","en"],["Casa a Maranello"]];
+const PAL_PROPOSTI=[["Scuola di ballo","eb"],["Palestra Vanilla","b2b"],["Campus Bocconi","lux"],["Casa a Milano","fr"],["Casa a Maranello","en"]];
 const nuovoPid=()=>"p"+Math.random().toString(36).slice(2,8);
 const palDaPid=pid=>S.palazzi.find(p=>p.id===pid);
 const palDi=mid=>palDaPid(S.palMat?.[mid]);
@@ -577,6 +577,11 @@ function avviaPalazzi(){
     }
     for(const u of unita()) if(S.tappe[u.id] && S.tappe[u.id].pid!==S.palMat[u.s]) delete S.tappe[u.id];
     S.palV=2; cambiato=true;
+  }
+  if(S.palV<3){ // francese e inglese in due palazzi diversi
+    const mar=S.palazzi.find(x=>x.nome.toLowerCase()==="casa a maranello")||(()=>{const p={id:nuovoPid(),nome:"Casa a Maranello",loci:[]}; S.palazzi.push(p); return p})();
+    S.palMat.en=mar.id; for(const u of unita()) if(u.s==="en" && S.tappe[u.id] && S.tappe[u.id].pid!==mar.id) delete S.tappe[u.id];
+    S.palV=3; cambiato=true;
   }
   const daAssegnare=unita().filter(u=>!u.l && fase(u)>=3 && !S.tappe[u.id] && palDi(u.s)).sort((x,y)=>(x.a||99)-(y.a||99));
   for(const u of daAssegnare){const pid=S.palMat[u.s], k=Math.min(8,Math.max(4,Math.ceil((u.p||30)/6))), da=prossimaTappa(pid);
