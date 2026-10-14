@@ -444,12 +444,13 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 <script>
 /* ============ DATI ============ */
 const MATERIE = [
-  {id:"fr",  nome:"French Language", breve:"Francese", esame:"2026-12-16", col:"--c-fr", lingua:true},
-  {id:"tm",  nome:"Trade Marketing & Category Management", breve:"Trade Mkt", esame:"2027-01-07", col:"--c-tm"},
-  {id:"eb",  nome:"Experience Branding & Retailing in Lifestyle Industries", breve:"Exp. Brand", esame:"2027-01-11", col:"--c-eb"},
-  {id:"b2b", nome:"B2B Marketing", breve:"B2B", esame:"2027-01-21", col:"--c-b2b"},
-  {id:"en",  nome:"English Seminars", breve:"English", esame:"2027-01-28", col:"--c-en", lingua:true},
-  {id:"lux", nome:"Luxury Companies in the Global Landscape", breve:"Luxury", esame:"2027-02-01", col:"--c-lux"},
+  // date, ore e finestre d'iscrizione dal calendario appelli Bocconi
+  {id:"fr",  nome:"French Language", breve:"Francese", esame:"2026-12-17", ora:"09:00", iscr:["2026-11-02","2026-12-11"], col:"--c-fr", lingua:true},
+  {id:"tm",  nome:"Trade Marketing & Category Management", breve:"Trade Mkt", esame:"2027-01-07", ora:"16:30", iscr:["2026-11-02","2027-01-03"], col:"--c-tm"},
+  {id:"eb",  nome:"Experience Branding & Retailing in Lifestyle Industries", breve:"Exp. Brand", esame:"2027-01-11", ora:"11:30", iscr:["2026-11-02","2027-01-04"], col:"--c-eb"},
+  {id:"b2b", nome:"B2B Marketing", breve:"B2B", esame:"2027-01-21", ora:"11:30", iscr:["2026-11-02","2027-01-15"], col:"--c-b2b"},
+  {id:"en",  nome:"English Seminars", breve:"English", esame:"2027-01-28", ora:"11:30", iscr:["2026-11-02","2027-01-22"], col:"--c-en", lingua:true},
+  {id:"lux", nome:"Luxury Companies in the Global Landscape", breve:"Luxury", esame:"2027-02-01", ora:"14:00", iscr:["2026-11-02","2027-01-26"], col:"--c-lux"},
 ];
 // fonte: lista materiali (formato, pagine). a = settimana d'ascolto (1 = dal 19 ottobre)
 function blocchi(prefix, subj, fonte, fmt, tot, n, a, base){
@@ -540,7 +541,7 @@ const FASI = [
 ];
 const RIPASSO = { // finestre di ripasso intensivo prima di ogni esame
   tm:["2026-12-21","2027-01-06"], eb:["2026-12-28","2027-01-10"], b2b:["2027-01-08","2027-01-20"],
-  lux:["2027-01-14","2027-01-31"], fr:["2026-12-07","2026-12-15"], en:["2027-01-22","2027-01-27"]
+  lux:["2027-01-14","2027-01-31"], fr:["2026-12-07","2026-12-16"], en:["2027-01-22","2027-01-27"]
 };
 const W1 = "2026-10-19"; // primo lunedì di stage
 
@@ -562,7 +563,7 @@ let OGGI = iso(new Date());
 const STATO_VUOTO = {v:1, fasi:{}, extra:[], fatti:{}, palestra:{}, casa:{}, coinq:["Io","Coinquilina 1","Coinquilina 2"],
   faccende:["Bagno","Cucina e piano cottura","Pavimenti","Spazzatura e differenziata"],
   palazzi:[{nome:"Casa dei miei",loci:["Porta d'ingresso","Attaccapanni","Corridoio","Cucina: frigo","Cucina: tavolo","Soggiorno: divano","Soggiorno: TV","Bagno","Camera: letto","Camera: armadio"]}],
-  palestraTarget:4, superati:{}, dadi:{}, rip:{}, natale:"?", weekendCasa:{}, tesi:{}, consegna:"", prenotazione:"", fineStage:"", dopoStage:"?", stageFatti:{}, note:""};
+  palestraTarget:4, superati:{}, dadi:{}, rip:{}, iscritto:{}, natale:"?", weekendCasa:{}, tesi:{}, consegna:"", prenotazione:"", fineStage:"", dopoStage:"?", stageFatti:{}, note:""};
 let S = structuredClone(STATO_VUOTO);
 let db=null, docRef=null, saveTimer=null, ultimoSalvato="", uidCorrente=null;
 const unita=()=>[...UNITA_BASE, ...S.extra];
@@ -632,7 +633,7 @@ function blocchiGiorno(s){
   const mapTxt=daMap?`<span class="dot" style="${sc(daMap.s)}"></span>${esc(daMap.t)}`:"Nessuna mappa arretrata: ripassa il palazzo";
   const focus=focusRipasso(s);
   const focTxt=focus.length?focus.map(m=>`<span class="dot" style="${sc(m.id)}"></span>${esc(m.breve)}`).join(" · "):"";
-  if(ex) out.push({id:"esame",t:"Esame",k:"exam",b:`Esame: ${esc(ex.nome)}`,x:ex.id==="fr"?"In presenza a Milano. Scritto 90' con il tuo dizionario cartaceo, poi l'orale circa un'ora dopo, senza dizionario. Porta il PowerPoint su chiavetta e nel cloud.":"In presenza a Milano. Giornata di permesso dallo stage."});
+  if(ex) out.push({id:"esame",t:ex.ora,k:"exam",b:`Esame: ${esc(ex.nome)}`,x:ex.id==="fr"?"In presenza a Milano. Scritto 90' con il tuo dizionario cartaceo, poi l'orale circa un'ora dopo, senza dizionario. Porta il PowerPoint su chiavetta e nel cloud.":"In presenza a Milano. Giornata di permesso dallo stage."});
   const exDomani=esameDi(addDays(s,1));
   const linU=unita().filter(u=>u.l&&fase(u)<1&&u.a<=w&&materia(u.s).esame>s).sort((x,y)=>x.a-y.a)[0];
   const linTxt=linU?`<span class="dot" style="${sc(linU.s)}"></span>${esc(materia(linU.s).breve)}: ${esc(linU.t)}`:"";
@@ -674,7 +675,7 @@ function blocchiGiorno(s){
       else if(linU && d===2) out.push({id:"sera",t:"19:30",k:"studio",b:"Lingue (45')",x:`${linTxt}. Scrivi e parla a voce alta.`});
       else if(d===1||d===2||d===4) out.push({id:"sera",t:"19:30",k:"studio",b:ripasso?"Sessione di ripasso (45')":"Sessione attiva (45')",
         x:ripasso?`${focTxt}: rifai la mappa a memoria, poi confronta. Chiudi con 5 domande dall'Assistente.`:`Mappa di ${mapTxt}. 2 pomodori da 20', in piedi o a voce alta.`});
-      if(d===3) out.push({id:"libera-mer",t:"Sera",k:"libero",b:"Sera libera o recupero",x:"Se sei in pari, riposa. Se sei indietro, 30' sul blocco in ritardo."});
+      if(d===3 && !exDomani) out.push({id:"libera-mer",t:"Sera",k:"libero",b:"Sera libera o recupero",x:"Se sei in pari, riposa. Se sei indietro, 30' sul blocco in ritardo."});
       if(d===5) out.push(S.weekendCasa?.[addDays(s,1)]
         ? {id:"viaggio-a",t:"18:30",k:"ascolto",b:"Viaggio verso casa (3h)",x:`In macchina: ${ascTxt}. Ultima mezz'ora: giro del palazzo a voce alta.`}
         : {id:"libera",t:"Sera",k:"libero",b:"Sera libera",x:"Niente studio. Serve a reggere fino a febbraio."});
@@ -772,6 +773,8 @@ function vOggi(){
     if(sett.some(x=>x[1])) h+=`<p class="small muted" style="margin-top:10px">Prossimi ripassi: ${sett.map(([g,n])=>`${GIORNI[parse(g).getDay()].slice(0,3)} <b class="num">${n}</b>`).join(" · ")}</p>`}
   if(late.length) h+=`<details class="fold"><summary><span>In ritardo</span><span class="cnt late num">${late.length}</span></summary><div class="card">${late.slice(0,6).map(unitRow).join("")}${late.length>6?`<p class="small muted" style="padding-top:8px">…e altre ${late.length-6} in Materie.</p>`:""}</div>
     <p class="small muted" style="margin-top:8px">Non recuperare tutto in una sera: un blocco in più al sabato basta.</p></details>`;
+  if(s===OGGI){const aperte=MATERIE.filter(m=>!S.iscritto?.[m.id]&&OGGI>=m.iscr[0]&&OGGI<=m.iscr[1]);
+    if(aperte.length) h+=`<div class="card" style="margin-top:16px"><span class="tag">Iscrizioni aperte</span><div class="stack" style="margin-top:10px">${aperte.map(m=>`<div class="row" style="flex-wrap:nowrap;justify-content:space-between"><span style="${sc(m.id)}"><span class="dot"></span>${esc(m.breve)} · ${fmtD(m.esame)} <span class="small ${diff(OGGI,m.iscr[1])<=7?"late":"muted"}">entro il ${fmtD(m.iscr[1])}</span></span><button class="btn ghost sm" data-iscr="${m.id}">Iscritta</button></div>`).join("")}</div><p class="small muted" style="margin-top:10px">Su Agenda yoU@B. Conviene farle tutte insieme.</p></div>`}
   STAGE.filter(t=>!S.stageFatti?.[t.id]&&diff(s,addDays(fineStage(),t.off))<=21&&s>=W1).forEach(t=>{
     h+=`<div class="card" style="margin-top:12px"><span class="tag">Stage</span> <b>${esc(t.t)}</b> <span class="small muted">entro il ${fmtD(addDays(fineStage(),t.off))}</span><div class="small muted">${esc(t.x)}</div></div>`});
   const tProssima=TESI.find(t=>!S.tesi?.[t.id]);
@@ -786,8 +789,7 @@ const PREP=[["p1","Scansiona i materiali stampati della settimana 1 (Go to Marke
     ["p4","Controlla orari e iscrizione della palestra a Fiorano"],
     ["p5","Chiedi in azienda come chiedere i 6 giorni d'esame e se c'è una chiusura a Natale"],
     ["p7","Recupera i materiali di English Seminars"],
-    ["p8","Francese: procurati un dizionario cartaceo italiano-francese (ammesso allo scritto)"],
-    ["p9","Iscriviti all'esame di francese del 16 dicembre su Agenda yoU@B"]];
+    ["p8","Francese: procurati un dizionario cartaceo italiano-francese (ammesso allo scritto)"]];
 function prepCard(){
   const L=PREP, f=S.fatti.prep||{};
   return `<div class="card" style="margin-top:12px"><h3>Prima del trasloco</h3><div class="stack" style="margin-top:8px">${L.map(([k,t])=>`<div class="row" style="flex-wrap:nowrap"><button class="tick" data-prep="${k}" aria-pressed="${!!f[k]}">${f[k]?"✓":""}</button><span>${t}</span></div>`).join("")}</div></div>`;
@@ -1254,8 +1256,9 @@ function caselle(){
   MATERIE.forEach(m=>L.push({k:"esame",id:"x-"+m.id,s:m.id,lb:m.breve,t:"Esame · "+m.nome,due:m.esame,done:!!S.superati?.[m.id],m}));
   TESI.forEach(t=>L.push({k:"tesi",id:t.id,lb:"Tesi",t:t.t,x:t.x,due:scadTesi(t)||"2027-06-30",done:!!S.tesi?.[t.id]}));
   STAGE.forEach(t=>L.push({k:"stage",id:t.id,lb:"Stage",t:t.t,x:t.x,due:addDays(fineStage(),t.off),done:!!S.stageFatti?.[t.id]}));
+  MATERIE.forEach(m=>L.push({k:"iscr",id:"i-"+m.id,s:m.id,lb:"Iscrizione",t:`Iscriviti all'esame di ${m.nome} (${fmtLong(m.esame)}) su yoU@B`,x:`Iscrizioni aperte dal ${fmtD(m.iscr[0])} al ${fmtD(m.iscr[1])}. Puoi farle tutte il 2 novembre.`,due:m.iscr[1],done:!!S.iscritto?.[m.id]}));
   PREP.forEach(([id,t])=>L.push({k:"prep",id,lb:"Preparazione",t,due:addDays(W1,-1),done:!!S.fatti.prep?.[id]}));
-  const ord={prep:-1,u:0,lingua:1,stage:2,tesi:3,esame:4};
+  const ord={prep:-1,u:0,lingua:1,iscr:2,stage:3,tesi:4,esame:5};
   L.sort((a,b)=>a.due<b.due?-1:a.due>b.due?1:ord[a.k]-ord[b.k]);
   return [{k:"start",id:"start",lb:"Partenza",t:"Primo giorno di stage",due:W1,done:true}, ...L, {k:"laurea",id:"laurea",lb:"Laurea",t:"Laurea · luglio 2027",due:"2027-07-31",done:false}];
 }
@@ -1332,6 +1335,7 @@ function schedaCasella(c){
   else if(c.k==="esame"){const ok=S.superati?.[c.m.id];
     a=ok?`<p style="margin-top:8px"><b>Superato${ok.voto?` con ${esc(ok.voto)}`:""}.</b></p><button class="btn ghost" data-nonsup="${c.m.id}" style="margin-top:6px">Annulla</button>`
       :`<form class="row" data-sup="${c.m.id}" style="margin-top:8px;flex-wrap:nowrap"><input type="text" id="voto-${c.m.id}" name="voto" placeholder="${c.m.lingua?"Superato":"Voto, es. 28"}" style="max-width:150px"><button class="btn" type="submit">Superato</button></form>`}
+  else if(c.k==="iscr") a=OGGI<c.due&&OGGI<MATERIE.find(m=>"i-"+m.id===c.id).iscr[0]?`<p class="small muted" style="margin-top:8px">Si apre il ${fmtD(MATERIE.find(m=>"i-"+m.id===c.id).iscr[0])}.</p>`:`<div class="row" style="margin-top:8px"><button class="btn ${c.done?"ghost":""}" data-iscr="${c.id.slice(2)}">${c.done?"Segna da fare":"Iscritta"}</button></div>`;
   else if(c.k==="prep") a=`<div class="row" style="margin-top:8px"><button class="btn ${c.done?"ghost":""}" data-prep="${c.id}">${c.done?"Segna da fare":"Fatto"}</button></div>`;
   else if(c.k==="tesi"||c.k==="stage") a=`<div class="row" style="margin-top:8px"><button class="btn ${c.done?"ghost":""}" data-${c.k==="tesi"?"tesi":"stagef"}="${c.id}">${c.done?"Segna da fare":"Fatto"}</button></div>`;
   return `<div class="card sheet" style="${c.s?sc(c.s):""}"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span class="tag">${esc(c.lb)} · ${c.k==="laurea"?"luglio 2027":fmtLong(c.due)}</span><button class="btn ghost" data-cas="-1" aria-label="Chiudi">×</button></div>
@@ -1361,6 +1365,7 @@ document.addEventListener("click",async e=>{
   if(t.id==="sl-quiz"){const ls=lezioni.filter(l=>l.materia===slMateria), qs=ls.flatMap(l=>(l.note.domande||[]).map(q=>({...q,lez:l.titolo})));
     const pick=qs.sort(()=>Math.random()-.5).slice(0,5);
     document.getElementById("sl-quizbox").innerHTML=pick.map(q=>`<details class="flash"><summary>${esc(q.q)}</summary><p class="small" style="margin-top:6px">${esc(q.a)} <span class="sl">${esc(q.lez)}${q.slide?" · sl. "+esc(q.slide):""}</span></p></details>`).join(""); return}
+  if(d.iscr){S.iscritto=S.iscritto||{}; S.iscritto[d.iscr]=!S.iscritto[d.iscr]; salva(); render(); return}
   if(d.rip){ripassa(d.rip,+d.voto); return}
   if(d.cas!==undefined){selCasella=+d.cas<0?null:+d.cas; render(); return}
   if(d.nonsup){delete S.superati[d.nonsup]; salva(); render(); return}
@@ -1424,8 +1429,9 @@ async function scaricaIcs(){
   const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z";
   const ev=[];
   MATERIE.forEach(m=>{const d=m.esame.replace(/-/g,""), d2=addDays(m.esame,1).replace(/-/g,"");
-    ev.push(["BEGIN:VEVENT",`UID:esame-${m.id}@sessione-inverno`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${d}`,`DTEND;VALUE=DATE:${d2}`,`SUMMARY:ESAME ${m.nome}`,
+    ev.push(["BEGIN:VEVENT",`UID:esame-${m.id}@sessione-inverno`,`DTSTAMP:${stamp}`,`DTSTART:${d}T${m.ora.replace(":","")}00`,`DTEND:${d}T${String(+m.ora.slice(0,2)+(m.lingua&&m.id==="fr"?3:2)).padStart(2,"0")}${m.ora.slice(3)}00`,`SUMMARY:ESAME ${m.nome}`,"LOCATION:Università Bocconi, Milano",
       "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Esame tra una settimana: chiedi il permesso in azienda","TRIGGER:-P7D","END:VALARM","END:VEVENT"].join("\r\n"));
+    ev.push(["BEGIN:VEVENT",`UID:iscrizione-${m.id}@sessione-inverno`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${m.iscr[1].replace(/-/g,"")}`,`DTEND;VALUE=DATE:${addDays(m.iscr[1],1).replace(/-/g,"")}`,`SUMMARY:Ultimo giorno iscrizione esame ${m.breve} (yoU@B)`,"END:VEVENT"].join("\r\n"));
     const r=RIPASSO[m.id]; ev.push(["BEGIN:VEVENT",`UID:ripasso-${m.id}@sessione-inverno`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${r[0].replace(/-/g,"")}`,`DTEND;VALUE=DATE:${addDays(r[1],1).replace(/-/g,"")}`,`SUMMARY:Ripasso ${m.breve}`,"TRANSP:TRANSPARENT","END:VEVENT"].join("\r\n"));
   });
   const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Sessione d'inverno//IT","CALSCALE:GREGORIAN",...ev,"END:VCALENDAR"].join("\r\n");
