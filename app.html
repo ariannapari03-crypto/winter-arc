@@ -440,7 +440,11 @@ function salva(){
     catch(e){setSync(e.code==="quota_exceeded"?"Spazio esaurito: salvato solo qui":"Non sincronizzato: salvato solo su questo dispositivo")}
   },700);
 }
-function carica(o){ if(o&&o.v===1){S=Object.assign(structuredClone(STATO_VUOTO),o); prevXp=null} }
+// Date scritte a mano: un anno a due cifre ("27") il campo data lo salva come 0027. Lo riportiamo al 2027.
+function dataValida(v){ if(!v||!/^\d{4}-\d{2}-\d{2}$/.test(v)) return "";
+  let y=+v.slice(0,4); if(y<100) y+=2000; if(y<2026||y>2028) return ""; return y+v.slice(4) }
+function carica(o){ if(o&&o.v===1){S=Object.assign(structuredClone(STATO_VUOTO),o); prevXp=null;
+  for(const k of ["prenotazione","consegna","fineStage"]) S[k]=dataValida(S[k]) } }
 try{const l=localStorage.getItem("sessione-inverno"); if(l) carica(JSON.parse(l))}catch(e){}
 
 async function avviaDb(){
@@ -1264,8 +1268,10 @@ document.addEventListener("change",e=>{
   if(t.dataset.pall){S.palazzi[+t.dataset.pall].loci=t.value.split("\n").map(x=>x.trim()).filter(Boolean); salva()}
   if(t.id==="note"){S.note=t.value; salva()}
   if(t.id==="bk-imp"&&t.files?.[0]){const r=new FileReader(); r.onload=()=>{try{const b=JSON.parse(r.result); if(b.app!=="winter-arc"||!b.stato) throw 0; bkInAttesa=b; render()}catch(_){toast("Questo file non è un backup di Winter arc")}}; r.readAsText(t.files[0])}
-  if(t.id==="fineStage"||t.id==="dopoStage"){S[t.id]=t.value; salva(); render()}
-  if(t.id==="consegna"||t.id==="prenotazione"){S[t.id]=t.value; salva(); render()}
+  if(t.id==="dopoStage"){S[t.id]=t.value; salva(); render()}
+  if(t.id==="consegna"||t.id==="prenotazione"||t.id==="fineStage"){const v=dataValida(t.value);
+    if(t.value&&!v){toast("Data non valida: scrivi l'anno per intero, es. 2027"); return}
+    S[t.id]=v; salva(); render(); if(v!==t.value) toast("Anno corretto in "+v.slice(0,4))}
 });
 document.addEventListener("toggle",e=>{if(e.target.dataset?.lez&&e.target.open) slAperta=e.target.dataset.lez},true);
 document.addEventListener("toggle",e=>{if(e.target.dataset?.mat&&e.target.open) materiaAperta=e.target.dataset.mat},true);
