@@ -583,6 +583,10 @@ function avviaPalazzi(){
     S.palMat.en=mar.id; for(const u of unita()) if(u.s==="en" && S.tappe[u.id] && S.tappe[u.id].pid!==mar.id) delete S.tappe[u.id];
     S.palV=3; cambiato=true;
   }
+  if(S.palV<4){ // palazzo di riserva
+    if(!S.palazzi.some(x=>x.nome.toLowerCase()==="palestra di milano")) S.palazzi.push({id:nuovoPid(),nome:"Palestra di Milano",loci:[]});
+    S.palV=4; cambiato=true;
+  }
   const daAssegnare=unita().filter(u=>!u.l && fase(u)>=3 && !S.tappe[u.id] && palDi(u.s)).sort((x,y)=>(x.a||99)-(y.a||99));
   for(const u of daAssegnare){const pid=S.palMat[u.s], k=Math.min(8,Math.max(4,Math.ceil((u.p||30)/6))), da=prossimaTappa(pid);
     S.tappe[u.id]={pid,da,a:da+k-1}; cambiato=true}
