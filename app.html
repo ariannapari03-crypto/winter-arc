@@ -1014,7 +1014,10 @@ async function eliminaLezione(id){
 }
 async function caricaLezioni(){
   try{ if(db&&uidCorrente){ const q=await db.collection("data/users/"+uidCorrente+"/slide").get();
-      lezioni=q.docs.map(d=>d.data()).filter(l=>l&&l.note); 
+      lezioni=q.docs.map(d=>d.data()).filter(l=>l&&l.note);
+      // Lezioni create quando i dati stavano solo sul dispositivo: si portano nell'archivio condiviso.
+      let locali=[]; try{locali=JSON.parse(localStorage.getItem("slide-locali")||"[]")}catch(_){}
+      for(const l of locali) if(l?.id && l.note && !lezioni.some(x=>x.id===l.id)) await salvaLezione(l).catch(()=>{});
       const ix=await db.collection("data/users/"+uidCorrente+"/indici").get(); ix.docs.forEach(d=>slIndice[d.id]=d.data());
     } else { lezioni=JSON.parse(localStorage.getItem("slide-locali")||"[]") }
   }catch(e){}

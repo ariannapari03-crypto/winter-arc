@@ -84,7 +84,57 @@
     },
   };
 
-  window.claude = { use: async (n) => (n === "sample" ? sample : n === "downloads" ? downloads : null) };
+  // Archivio condiviso tra dispositivi (/api/db). Se non è configurato su Vercel, l'app resta sul dispositivo.
+  async function dbApi(body) {
+    const pw = password();
+    if (!pw) throw { code: "not_granted" };
+    let r;
+    try {
+      r = await fetch("/api/db", { method: "POST", headers: { "content-type": "application/json", "x-app-password": pw }, body: JSON.stringify(body) });
+    } catch (e) { throw { code: "unavailable" }; }
+    if (r.status === 401) { try { localStorage.removeItem(CHIAVE_PW); } catch (e) {} throw { code: "not_granted" }; }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw { code: r.status === 501 ? "capability_disabled" : j.code || "unavailable" };
+    return j;
+  }
+  const istantanea = (id, data) => ({ id, exists: data != null, data: () => (data == null ? undefined : data), metadata: { fromCache: false, hasPendingWrites: false } });
+  function documento(path) {
+    const i = path.lastIndexOf("/"), col = path.slice(0, i), id = path.slice(i + 1);
+    const leggi = async () => istantanea(id, (await dbApi({ op: "get", col, id })).data);
+    return {
+      id, path,
+      get: leggi,
+      set: async (data) => { await dbApi({ op: "set", col, id, data }); },
+      update: async (parte) => { const s = await leggi(); await dbApi({ op: "set", col, id, data: { ...(s.data() || {}), ...parte } }); },
+      delete: async () => { await dbApi({ op: "del", col, id }); },
+      onSnapshot(next, errore) {
+        // Controlla quando l'app torna in primo piano e ogni 20 secondi mentre è aperta.
+        let ultimo = null;
+        const giro = async () => {
+          try { const s = await leggi(); const t = JSON.stringify(s.data() ?? null); if (t !== ultimo) { ultimo = t; next(s); } }
+          catch (e) { if (errore && e && e.code === "not_granted") errore(e); }
+        };
+        giro();
+        const timer = setInterval(() => { if (document.visibilityState === "visible") giro(); }, 20000);
+        const visibile = () => { if (document.visibilityState === "visible") giro(); };
+        document.addEventListener("visibilitychange", visibile);
+        return () => { clearInterval(timer); document.removeEventListener("visibilitychange", visibile); };
+      },
+    };
+  }
+  const collezione = (path) => ({
+    path,
+    doc: (id) => documento(path + "/" + id),
+    get: async () => { const docs = Object.entries((await dbApi({ op: "list", col: path })).data || {}).map(([id, d]) => istantanea(id, d)); return { docs, size: docs.length, empty: !docs.length }; },
+  });
+  const db = { doc: documento, collection: collezione };
+  const utente = { id: async () => "io", isOwner: () => true, canEdit: () => true, can: () => true };
+  let dbPronto = null;
+  const usaDb = () => (dbPronto ||= dbApi({ op: "ping" }).then(() => db).catch(() => null));
+
+  window.claude = {
+    use: async (n) => (n === "sample" ? sample : n === "downloads" ? downloads : n === "db" ? usaDb() : n === "user" ? usaDb().then((d) => (d ? utente : null)) : null),
+  };
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
   if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 })();
@@ -1106,7 +1156,10 @@ async function eliminaLezione(id){
 }
 async function caricaLezioni(){
   try{ if(db&&uidCorrente){ const q=await db.collection("data/users/"+uidCorrente+"/slide").get();
-      lezioni=q.docs.map(d=>d.data()).filter(l=>l&&l.note); 
+      lezioni=q.docs.map(d=>d.data()).filter(l=>l&&l.note);
+      // Lezioni create quando i dati stavano solo sul dispositivo: si portano nell'archivio condiviso.
+      let locali=[]; try{locali=JSON.parse(localStorage.getItem("slide-locali")||"[]")}catch(_){}
+      for(const l of locali) if(l?.id && l.note && !lezioni.some(x=>x.id===l.id)) await salvaLezione(l).catch(()=>{});
       const ix=await db.collection("data/users/"+uidCorrente+"/indici").get(); ix.docs.forEach(d=>slIndice[d.id]=d.data());
     } else { lezioni=JSON.parse(localStorage.getItem("slide-locali")||"[]") }
   }catch(e){}

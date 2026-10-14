@@ -1,19 +1,13 @@
 // Unico punto in cui l'app parla con Claude. La chiave sta solo nelle variabili d'ambiente di Vercel
 // (ANTHROPIC_API_KEY), mai nel browser. APP_PASSWORD impedisce a chi trova l'indirizzo di consumare il credito.
 import Anthropic from "@anthropic-ai/sdk";
-import { timingSafeEqual } from "node:crypto";
+import { passwordOk } from "./_auth.js";
 
 export const config = { maxDuration: 300 };
 
 const client = new Anthropic();
 const SFORZO = { quick: "low", default: "medium", complex: "high" };
 const MAX_IMMAGINI = 6;
-
-function passwordOk(req) {
-  const attesa = Buffer.from(process.env.APP_PASSWORD || "");
-  const data = Buffer.from(String(req.headers["x-app-password"] || ""));
-  return attesa.length > 0 && attesa.length === data.length && timingSafeEqual(attesa, data);
-}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ code: "method" });
