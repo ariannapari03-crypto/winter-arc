@@ -780,8 +780,7 @@ function vOggi(){
   if(qs.length) h+=`<details class="fold"><summary><span>Questa settimana</span><span class="cnt num">${qs.filter(u=>fase(u)>=(u.l?1:3)).length}/${qs.length}</span></summary><div class="legend" style="margin-bottom:8px">${FASI.map(f=>`<span style="--lc:var(--muted)">${f.k} = ${f.nome}</span>`).join("")}<span style="--lc:var(--c-fr)">Lingue: F = Fatto</span></div><div class="card">${qs.map(unitRow).join("")}</div></details>`;
   return h;
 }
-function prepCard(){
-  const L=[["p1","Scansiona i materiali stampati della settimana 1 (Go to Market) con il telefono e trasformali in audio"],
+const PREP=[["p1","Scansiona i materiali stampati della settimana 1 (Go to Market) con il telefono e trasformali in audio"],
     ["p2","Prova la lettura vocale del telefono su Kindle e su Egea digitabook (vedi Metodo)"],
     ["p3","Scegli il palazzo della memoria e scrivi le sue tappe nella scheda Altro"],
     ["p4","Controlla orari e iscrizione della palestra a Fiorano"],
@@ -789,7 +788,8 @@ function prepCard(){
     ["p7","Recupera i materiali di English Seminars"],
     ["p8","Francese: procurati un dizionario cartaceo italiano-francese (ammesso allo scritto)"],
     ["p9","Iscriviti all'esame di francese del 16 dicembre su Agenda yoU@B"]];
-  const f=S.fatti.prep||{};
+function prepCard(){
+  const L=PREP, f=S.fatti.prep||{};
   return `<div class="card" style="margin-top:12px"><h3>Prima del trasloco</h3><div class="stack" style="margin-top:8px">${L.map(([k,t])=>`<div class="row" style="flex-wrap:nowrap"><button class="tick" data-prep="${k}" aria-pressed="${!!f[k]}">${f[k]?"✓":""}</button><span>${t}</span></div>`).join("")}</div></div>`;
 }
 function unitRow(u){
@@ -1254,7 +1254,8 @@ function caselle(){
   MATERIE.forEach(m=>L.push({k:"esame",id:"x-"+m.id,s:m.id,lb:m.breve,t:"Esame · "+m.nome,due:m.esame,done:!!S.superati?.[m.id],m}));
   TESI.forEach(t=>L.push({k:"tesi",id:t.id,lb:"Tesi",t:t.t,x:t.x,due:scadTesi(t)||"2027-06-30",done:!!S.tesi?.[t.id]}));
   STAGE.forEach(t=>L.push({k:"stage",id:t.id,lb:"Stage",t:t.t,x:t.x,due:addDays(fineStage(),t.off),done:!!S.stageFatti?.[t.id]}));
-  const ord={u:0,lingua:1,stage:2,tesi:3,esame:4};
+  PREP.forEach(([id,t])=>L.push({k:"prep",id,lb:"Preparazione",t,due:addDays(W1,-1),done:!!S.fatti.prep?.[id]}));
+  const ord={prep:-1,u:0,lingua:1,stage:2,tesi:3,esame:4};
   L.sort((a,b)=>a.due<b.due?-1:a.due>b.due?1:ord[a.k]-ord[b.k]);
   return [{k:"start",id:"start",lb:"Partenza",t:"Primo giorno di stage",due:W1,done:true}, ...L, {k:"laurea",id:"laurea",lb:"Laurea",t:"Laurea · luglio 2027",due:"2027-07-31",done:false}];
 }
@@ -1311,7 +1312,7 @@ function vPercorso(){
   <p class="small muted" style="margin-top:12px">Ogni casella ha una scadenza: un blocco di studio si chiude quando arriva al palazzo. «OGGI» è dove vuole il piano.</p>
   <div class="board" style="grid-template-rows:repeat(${rows},auto)"><svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" vector-effect="non-scaling-stroke"/></svg>`;
   C.forEach((c,i)=>{const [r,co]=pos(i);
-    h+=`<button class="cell k-${c.k} ${c.done&&c.k!=="start"?"done":""} ${i===ghost&&ghost!==pawn?"ghost":""} ${selCasella===i?"sel":""}" style="grid-row:${r+1};grid-column:${co+1};${c.s?sc(c.s):c.k==="tesi"?"--sc:var(--accent)":c.k==="stage"?"--sc:var(--muted)":""}" data-cas="${i}" aria-label="Casella ${i}: ${esc(c.t)}">
+    h+=`<button class="cell k-${c.k} ${c.done&&c.k!=="start"?"done":""} ${i===ghost&&ghost!==pawn?"ghost":""} ${selCasella===i?"sel":""}" style="grid-row:${r+1};grid-column:${co+1};${c.s?sc(c.s):c.k==="tesi"||c.k==="prep"?"--sc:var(--accent)":c.k==="stage"?"--sc:var(--muted)":""}" data-cas="${i}" aria-label="Casella ${i}: ${esc(c.t)}">
       <span class="no num">${i}</span><span class="lb">${esc(c.lb)}</span><span class="dt">${c.k==="laurea"?"LUGLIO":c.k==="start"?fmtD(c.due).toUpperCase():c.k==="esame"?"ESAME "+fmtD(c.due).toUpperCase():"ENTRO "+fmtD(c.due).toUpperCase()}</span>${i===pawn?PEDINA:""}</button>`});
   h+=`</div>`;
   if(selCasella!==null && C[selCasella]) h+=schedaCasella(C[selCasella]);
@@ -1331,6 +1332,7 @@ function schedaCasella(c){
   else if(c.k==="esame"){const ok=S.superati?.[c.m.id];
     a=ok?`<p style="margin-top:8px"><b>Superato${ok.voto?` con ${esc(ok.voto)}`:""}.</b></p><button class="btn ghost" data-nonsup="${c.m.id}" style="margin-top:6px">Annulla</button>`
       :`<form class="row" data-sup="${c.m.id}" style="margin-top:8px;flex-wrap:nowrap"><input type="text" id="voto-${c.m.id}" name="voto" placeholder="${c.m.lingua?"Superato":"Voto, es. 28"}" style="max-width:150px"><button class="btn" type="submit">Superato</button></form>`}
+  else if(c.k==="prep") a=`<div class="row" style="margin-top:8px"><button class="btn ${c.done?"ghost":""}" data-prep="${c.id}">${c.done?"Segna da fare":"Fatto"}</button></div>`;
   else if(c.k==="tesi"||c.k==="stage") a=`<div class="row" style="margin-top:8px"><button class="btn ${c.done?"ghost":""}" data-${c.k==="tesi"?"tesi":"stagef"}="${c.id}">${c.done?"Segna da fare":"Fatto"}</button></div>`;
   return `<div class="card sheet" style="${c.s?sc(c.s):""}"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span class="tag">${esc(c.lb)} · ${c.k==="laurea"?"luglio 2027":fmtLong(c.due)}</span><button class="btn ghost" data-cas="-1" aria-label="Chiudi">×</button></div>
     <h3 style="margin-top:8px">${esc(c.t)}</h3>${c.x?`<p class="small muted" style="margin-top:4px">${esc(c.x)}</p>`:""}${c.k==="laurea"?`<p class="small muted" style="margin-top:4px">L'ultima casella. Ci arrivi chiudendo tutte le altre.</p>`:""}${a}</div>`;
