@@ -563,7 +563,7 @@ let OGGI = iso(new Date());
 const STATO_VUOTO = {v:1, fasi:{}, extra:[], fatti:{}, palestra:{}, casa:{}, coinq:["Io","Coinquilina 1","Coinquilina 2"],
   faccende:["Bagno","Cucina e piano cottura","Pavimenti","Spazzatura e differenziata"],
   palazzi:[{nome:"Casa dei miei",loci:["Porta d'ingresso","Attaccapanni","Corridoio","Cucina: frigo","Cucina: tavolo","Soggiorno: divano","Soggiorno: TV","Bagno","Camera: letto","Camera: armadio"]}],
-  palestraTarget:4, superati:{}, dadi:{}, rip:{}, iscritto:{}, natale:"?", weekendCasa:{}, tesi:{}, consegna:"", prenotazione:"", fineStage:"", dopoStage:"?", stageFatti:{}, note:""};
+  palestraTarget:4, superati:{}, dadi:{}, rip:{}, iscritto:{}, palMat:{}, tappe:{}, palV:0, natale:"?", weekendCasa:{}, tesi:{}, consegna:"", prenotazione:"", fineStage:"", dopoStage:"?", stageFatti:{}, note:""};
 let S = structuredClone(STATO_VUOTO);
 let db=null, docRef=null, saveTimer=null, ultimoSalvato="", uidCorrente=null;
 const unita=()=>[...UNITA_BASE, ...S.extra];
@@ -697,6 +697,33 @@ function blocchiGiorno(s){
 }
 
 const MOTTI=["Disciplina, non motivazione.","Un blocco alla volta.","Il lavoro di oggi è l'esame di gennaio.","Nessuno lo vede. Tu sì.","Pochi minuti, ogni giorno.","Fai la cosa difficile per prima.","Silenzio, cuffie, avanti.","Costante batte intenso.","Il percorso si fa una casella per volta.","Prima la mappa, poi il mondo."];
+/* ============ PALAZZI PER MATERIA ============ */
+// Ogni materia ha il suo palazzo; quando un blocco arriva a P gli si assegnano le prossime tappe libere.
+const PAL_PROPOSTI=[["Casa a Milano","eb"],["Bocconi","b2b"],["Milano · Quadrilatero della moda","lux"],["Casa a Maranello","fr","en"]];
+const nuovoPid=()=>"p"+Math.random().toString(36).slice(2,8);
+const palDaPid=pid=>S.palazzi.find(p=>p.id===pid);
+const palDi=mid=>palDaPid(S.palMat?.[mid]);
+function prossimaTappa(pid){return 1+Math.max(0,...Object.values(S.tappe||{}).filter(t=>t.pid===pid).map(t=>t.a))}
+function avviaPalazzi(){
+  let cambiato=false; S.palMat=S.palMat||{}; S.tappe=S.tappe||{};
+  S.palazzi.forEach(p=>{if(!p.id){p.id=nuovoPid(); cambiato=true}});
+  if(!S.palV){ // prima volta: i palazzi proposti, senza toccare quelli già scritti
+    if(S.palazzi[0] && !S.palMat.tm) S.palMat.tm=S.palazzi[0].id;
+    for(const [nome,...mats] of PAL_PROPOSTI){
+      let p=S.palazzi.find(x=>x.nome.toLowerCase()===nome.toLowerCase());
+      if(!p){p={id:nuovoPid(),nome,loci:[]}; S.palazzi.push(p)}
+      mats.forEach(m=>{if(!S.palMat[m]) S.palMat[m]=p.id});
+    }
+    S.palV=1; cambiato=true;
+  }
+  const daAssegnare=unita().filter(u=>!u.l && fase(u)>=3 && !S.tappe[u.id] && palDi(u.s)).sort((x,y)=>(x.a||99)-(y.a||99));
+  for(const u of daAssegnare){const pid=S.palMat[u.s], k=Math.min(8,Math.max(4,Math.ceil((u.p||30)/6))), da=prossimaTappa(pid);
+    S.tappe[u.id]={pid,da,a:da+k-1}; cambiato=true}
+  return cambiato;
+}
+function tappeTesto(u){const t=S.tappe?.[u.id], p=t&&palDaPid(t.pid); if(!p) return "";
+  const nomi=[p.loci[t.da-1],p.loci[t.a-1]];
+  return `${esc(p.nome)} · tappe ${t.da}–${t.a}${nomi[0]?`: ${esc(nomi[0])}${nomi[1]?" → "+esc(nomi[1]):""}`:""}${t.a>p.loci.length?' <span class="late">(aggiungi tappe al palazzo)</span>':""}`}
 /* ============ RIPASSI DILAZIONATI ============ */
 // Ogni blocco di studio entra in calendario quando arriva alla Mappa. Intervalli che crescono (≈1, 3, 7, 14, 30 giorni)
 // in base al voto; l'ultimo ripasso cade sempre 2 giorni prima dell'esame della materia.
@@ -724,7 +751,7 @@ function ripassa(id,voto){
 }
 function ripRiga(u){const r=S.rip[u.id], m=materia(u.s), rit=diff(r.next,OGGI);
   return `<div class="rip" style="${sc(u.s)}"><div><span class="dot"></span><b>${esc(u.t)}</b>
-    <div class="small muted">${r.n+1}° ripasso · ${rit>0?`<span class="late">in ritardo di ${rit} ${rit===1?"giorno":"giorni"}</span>`:"oggi"} · esame ${fmtD(m.esame)}</div></div>
+    ${S.tappe?.[u.id]?`<div class="small">${tappeTesto(u)}</div>`:""}<div class="small muted">${r.n+1}° ripasso · ${rit>0?`<span class="late">in ritardo di ${rit} ${rit===1?"giorno":"giorni"}</span>`:"oggi"} · esame ${fmtD(m.esame)}</div></div>
     <div class="row"><button class="btn ghost sm" data-rip="${u.id}" data-voto="0">Non ricordavo</button><button class="btn ghost sm" data-rip="${u.id}" data-voto="1">A fatica</button><button class="btn sm" data-rip="${u.id}" data-voto="2">Bene</button></div></div>`}
 /* ============ VISTE ============ */
 const VISTE=[["percorso","Percorso"],["oggi","Oggi"],["piano","Piano"],["materie","Materie"],["aiuto","Studio"],["casa","Altro"],["metodo","Metodo"]];
@@ -797,7 +824,7 @@ function prepCard(){
 function unitRow(u){
   const f=fase(u), late=inRitardo(u,settimana(OGGI));
   return `<div class="unit" style="${sc(u.s)}"><div style="min-width:0"><div><span class="dot"></span>${esc(u.t)}</div>
-    <div class="meta">${u.p?u.p+" pp · ":""}${esc(u.fmt)}${u.a?(u.l?` · settimana ${u.a}`:` · ascolto sett. ${u.a}, mappa sett. ${u.a+1}`):""}${late?' · <span class="late">in ritardo</span>':""}</div></div>
+    <div class="meta">${u.p?u.p+" pp · ":""}${esc(u.fmt)}${u.a?(u.l?` · settimana ${u.a}`:` · ascolto sett. ${u.a}, mappa sett. ${u.a+1}`):""}${late?' · <span class="late">in ritardo</span>':""}</div>${S.tappe?.[u.id]?`<div class="meta">${tappeTesto(u)}</div>`:""}</div>
     <div class="phases">${fasiDi(u).map((x,i)=>`<button class="ph ${f>i?"on":""}" data-u="${u.id}" data-f="${i+1}" aria-label="${x.nome}" title="${x.nome}">${x.k}</button>`).join("")}</div></div>`;
 }
 
@@ -988,7 +1015,7 @@ const AZIONI={
   semplice:{lab:"Spiegamelo semplice",tier:"default",p:`Spiegami il materiale come in un podcast di 3 minuti, in italiano parlato, frasi brevi, senza elenchi puntati, perché lo ascolterò con la sintesi vocale. Comincia dal "perché conta", poi i 3–4 concetti chiave con un esempio ciascuno, poi un riassunto in due frasi.`},
 };
 function vAiuto(){
-  const pal=S.palazzi.map((p,i)=>`<option value="${i}">${esc(p.nome)}</option>`).join("");
+  const pal=S.palazzi.map(p=>`<option value="${p.id}" ${S.palMat?.[MATERIE[0].id]===p.id?"selected":""}>${esc(p.nome)}</option>`).join("");
   return `${segStudio("aiuto")}<h2>Assistente di studio</h2>
   <p class="muted small">Incolla un pezzo di capitolo (o fotografa una pagina) e scegli cosa ti serve. Lavora solo sul testo che gli dai: se il testo non basta, te lo dice.</p>
   <div class="stack" style="margin-top:12px">
@@ -1016,7 +1043,8 @@ async function chiedi(k){
   if(!testo&&!(files&&files.length)&&k!=="gramm"){note.textContent="Incolla un testo o aggiungi una foto, poi scegli l'azione.";return}
   const m=materia(document.getElementById("ai-mat").value);
   let extra="";
-  if(k==="palazzo"){const p=S.palazzi[+document.getElementById("ai-pal").value||0]; extra=`\nIl palazzo si chiama "${p.nome}" e le tappe, in ordine, sono: ${p.loci.join("; ")}. Usa solo queste tappe.`}
+  if(k==="palazzo"){const p=palDaPid(document.getElementById("ai-pal").value)||S.palazzi[0], da=prossimaTappa(p.id), libere=p.loci.slice(da-1);
+    extra=`\nIl palazzo si chiama "${p.nome}". Usa SOLO queste tappe libere, in quest'ordine: ${(libere.length?libere:p.loci).join("; ")}.`}
   const prompt=`Sei il tutor di una studentessa magistrale di Marketing Management in Bocconi, che sta preparando l'esame "${m.nome}". Studia soprattutto ascoltando, con mappe concettuali e palazzo della memoria.
 ${AZIONI[k].libero?"":"Regola: usa SOLO il materiale qui sotto. Non aggiungere fatti, numeri, autori o casi che non ci sono; se il materiale è insufficiente per il compito, dillo chiaramente in una riga."}
 Compito: ${AZIONI[k].p}${extra}
@@ -1061,8 +1089,12 @@ function vCasa(){
     <label class="small muted row" style="gap:6px">Obiettivo <input type="number" id="gym-t" min="1" max="7" value="${S.palestraTarget}" style="width:70px"></label></div>
     <div class="gymdays">${giorni.map(g=>`<button class="tick" data-gym="${g}" aria-pressed="${!!S.palestra[g]}" aria-label="Palestra ${fmtLong(g)}">${GIORNI[parse(g).getDay()].slice(0,2)}</button>`).join("")}</div>
     <p class="small muted" style="margin-top:8px">Mattina presto, così la sera resta per lo studio. Ogni allenamento è un'ora di ascolto.</p></div>`;
-  h+=`<h2>Palazzi della memoria</h2><p class="small muted">Un luogo che conosci a memoria, percorso sempre nello stesso ordine. Un palazzo per materia, o un'ala per materia.</p><div class="stack" style="margin-top:10px">`;
-  S.palazzi.forEach((p,i)=>{h+=`<div class="card stack"><input type="text" id="pal-n-${i}" data-paln="${i}" value="${esc(p.nome)}" aria-label="Nome del palazzo">
+  h+=`<h2>Palazzi della memoria</h2><p class="small muted">Un luogo che conosci a memoria, percorso sempre nello stesso ordine. Quando un blocco arriva a P, prende le prossime tappe libere del palazzo della sua materia.</p>
+  <div class="card stack" style="margin-top:10px"><b>Palazzo per materia</b>${MATERIE.map(m=>`<label class="f" style="flex-direction:row;align-items:center;justify-content:space-between;gap:10px"><span style="${sc(m.id)};color:var(--ink)"><span class="dot"></span>${esc(m.breve)}</span><select id="palmat-${m.id}" data-palmat="${m.id}" style="max-width:62%"><option value="">—</option>${S.palazzi.map(p=>`<option value="${p.id}" ${S.palMat?.[m.id]===p.id?"selected":""}>${esc(p.nome)}</option>`).join("")}</select></label>`).join("")}</div>
+  <div class="stack" style="margin-top:10px">`;
+  S.palazzi.forEach((p,i)=>{const usato=MATERIE.filter(m=>S.palMat?.[m.id]===p.id).map(m=>m.breve), occ=prossimaTappa(p.id)-1;
+    h+=`<div class="card stack"><input type="text" id="pal-n-${i}" data-paln="${i}" value="${esc(p.nome)}" aria-label="Nome del palazzo">
+    <p class="small muted">${usato.length?"Per "+esc(usato.join(", ")):"Nessuna materia"} · ${p.loci.length} tappe${occ?` · occupate ${occ}`:""}${occ>p.loci.length?' <span class="late">· ne servono altre</span>':""}</p>
     <label class="f">Tappe, una per riga<textarea id="pal-l-${i}" data-pall="${i}" style="min-height:120px">${esc(p.loci.join("\n"))}</textarea></label>
     ${S.palazzi.length>1?`<button class="btn ghost" data-paldel="${i}">Elimina palazzo</button>`:""}</div>`});
   h+=`<button class="btn ghost" id="pal-add">Aggiungi un palazzo</button></div>
@@ -1344,7 +1376,7 @@ function schedaCasella(c){
 
 /* ============ RENDER E EVENTI ============ */
 function render(){
-  if(avviaRip()) salva();
+  const c1=avviaPalazzi(), c2=avviaRip(); if(c1||c2) salva();
   renderTesta();
   const v=document.getElementById("view");
   renderLvl();
@@ -1375,14 +1407,17 @@ document.addEventListener("click",async e=>{
   if(d.fatto){const s=giornoVisto; S.fatti[s]=S.fatti[s]||{}; S.fatti[s][d.fatto]=!S.fatti[s][d.fatto]; salva(); render(); return}
   if(d.prep){S.fatti.prep=S.fatti.prep||{}; S.fatti.prep[d.prep]=!S.fatti.prep[d.prep]; salva(); render(); return}
   if(d.u){const cur=S.fasi[d.u]||0, f=+d.f; S.fasi[d.u]= cur>=f ? f-1 : f;
-    if(S.fasi[d.u]<2 && S.rip) delete S.rip[d.u]; avviaRip(); salva();
+    if(S.fasi[d.u]<2 && S.rip) delete S.rip[d.u];
+    if(S.fasi[d.u]<3 && S.tappe) delete S.tappe[d.u]; avviaPalazzi(); avviaRip(); salva();
     const det=t.closest("details"); materiaAperta=det?.dataset.mat||materiaAperta; render(); return}
   if(d.stagef){S.stageFatti=S.stageFatti||{}; S.stageFatti[d.stagef]=!S.stageFatti[d.stagef]; salva(); render(); return}
   if(d.tesi){S.tesi=S.tesi||{}; S.tesi[d.tesi]=!S.tesi[d.tesi]; salva(); render(); return}
   if(d.wcasa){S.weekendCasa=S.weekendCasa||{}; if(S.weekendCasa[d.wcasa]) delete S.weekendCasa[d.wcasa]; else S.weekendCasa[d.wcasa]=true; salva(); render(); return}
   if(d.natale){S.natale=d.natale; salva(); render(); return}
   if(d.gym){S.palestra[d.gym]=!S.palestra[d.gym]; if(!S.palestra[d.gym]) delete S.palestra[d.gym]; salva(); render(); return}
-  if(d.paldel){S.palazzi.splice(+d.paldel,1); salva(); render(); return}
+  if(d.paldel){const pid=S.palazzi[+d.paldel]?.id; S.palazzi.splice(+d.paldel,1);
+    for(const m in S.palMat) if(S.palMat[m]===pid) delete S.palMat[m];
+    for(const u in S.tappe) if(S.tappe[u].pid===pid) delete S.tappe[u]; salva(); render(); return}
   if(d.del){S.extra=S.extra.filter(u=>u.id!==d.del); delete S.fasi[d.del]; salva(); render(); toast("Materiale tolto"); return}
   if(d.ai){chiedi(d.ai); return}
   if(t.id==="ai-stop"){ctl?.abort(); return}
@@ -1390,7 +1425,7 @@ document.addEventListener("click",async e=>{
   if(t.id==="ai-shh"){try{speechSynthesis.cancel()}catch(_){}; return}
   if(t.id==="ai-copy"){const o=document.getElementById("ai-out").textContent;
     try{await navigator.clipboard.writeText(o); toast("Copiato")}catch(_){const r=document.createRange();r.selectNodeContents(document.getElementById("ai-out"));const s=getSelection();s.removeAllRanges();s.addRange(r);toast("Testo selezionato: copialo")} return}
-  if(t.id==="pal-add"){S.palazzi.push({nome:"Nuovo palazzo",loci:[]}); salva(); render(); return}
+  if(t.id==="pal-add"){S.palazzi.push({id:nuovoPid(),nome:"Nuovo palazzo",loci:[]}); salva(); render(); return}
   if(t.id==="ics"){scaricaIcs(); return}
   if(t.id==="bk-exp"){esportaBackup(); return}
   if(t.id==="bk-ok"){ripristinaBackup(); return}
@@ -1413,6 +1448,10 @@ document.addEventListener("submit",e=>{
 document.addEventListener("change",e=>{
   const t=e.target;
   if(t.id==="gym-t"){S.palestraTarget=Math.min(7,Math.max(1,+t.value||4)); salva(); render()}
+  if(t.dataset.palmat){const m=t.dataset.palmat; if(t.value) S.palMat[m]=t.value; else delete S.palMat[m];
+    for(const u of unita()) if(u.s===m && S.tappe?.[u.id] && S.tappe[u.id].pid!==t.value) delete S.tappe[u.id];
+    avviaPalazzi(); salva(); render()}
+  if(t.id==="ai-mat"){const sel=document.getElementById("ai-pal"); if(sel&&S.palMat?.[t.value]) sel.value=S.palMat[t.value]}
   if(t.dataset.paln){S.palazzi[+t.dataset.paln].nome=t.value.trim()||"Palazzo"; salva()}
   if(t.dataset.pall){S.palazzi[+t.dataset.pall].loci=t.value.split("\n").map(x=>x.trim()).filter(Boolean); salva()}
   if(t.id==="note"){S.note=t.value; salva()}
