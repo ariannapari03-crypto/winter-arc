@@ -571,6 +571,31 @@ const materia=id=>MATERIE.find(m=>m.id===id);
 const fase=u=>S.fasi[u.id]||0;
 const fasiDi=u=>u.l?FASI_LINGUA:FASI;
 
+
+/* ============ MAPPE GO TO MARKET (mappe-gtm.html) ============ */
+// Le mappe salvano l'avanzamento per capitolo in "gtm-mappe" (localStorage + documento data/users/io/gtm-mappe).
+const GTM_BLOCCHI={gtm1:[1,2],gtm2:[3,4,5],gtm3:[5,6,7],gtm4:[8,9],gtm5:[10,11]};
+const GTM_TITOLI=["Macroambiente e concorrenza","Analisi dello shopper","I distributori","Dimensione economica","Dimensione sociale","Progettazione del canale","Trade marketing","Partnership di canale","Category management","Performance distributive","Performance economico-finanziaria"];
+let MAPPE=null;
+function leggiMappeLocali(){try{const l=localStorage.getItem("gtm-mappe"); if(l) MAPPE=JSON.parse(l)}catch(e){}}
+leggiMappeLocali();
+addEventListener("storage",e=>{if(e.key==="gtm-mappe"){leggiMappeLocali(); render()}});
+const capM=n=>MAPPE?.cap?.[n]||{};
+function applicaMappe(){ if(!MAPPE) return false; let c=false;
+  for(const [id,caps] of Object.entries(GTM_BLOCCHI)) if(caps.every(n=>capM(n).studiato) && (S.fasi[id]||0)<2){S.fasi[id]=2; c=true}
+  return c }
+function xpMappe(){ if(!MAPPE) return 0; let x=0;
+  for(const c of Object.values(MAPPE.cap||{})) x+=(c.studiato?30:0)+(c.esercizio?20:0)+(c.quizOk||0)*5+Math.floor((c.sec||0)/900)*5+(c.rip?.n||0)*5;
+  return x }
+const ripMappeDovuti=s=>MAPPE?Object.entries(MAPPE.cap||{}).filter(([n,c])=>c.studiato&&c.rip&&c.rip.next<=s).map(([n])=>+n).sort((a,b)=>a-b):[];
+function mappeCard(){
+  const due=ripMappeDovuti(OGGI), fatti=Object.values(MAPPE?.cap||{}).filter(c=>c.studiato).length;
+  const min=Math.round(Object.values(MAPPE?.cap||{}).reduce((a,c)=>a+(c.sec||0),0)/60);
+  return `<div class="card" style="margin-top:16px;${sc("tm")}"><div class="row" style="justify-content:space-between"><span><span class="dot"></span><b>Mappe Go to Market</b></span><a class="btn ghost sm" href="mappe-gtm.html" target="_blank" rel="noopener">Apri le mappe</a></div>
+    <p class="small muted" style="margin-top:6px"><span class="num">${fatti}</span>/11 capitoli studiati · <span class="num">${min}</span> min · +<span class="num">${xpMappe()}</span> XP</p>
+    ${due.length?`<div class="stack" style="margin-top:8px">${due.map(n=>`<a class="fold-link" href="mappe-gtm.html#cap${n}" target="_blank" rel="noopener"><span>Ripasso · cap. ${n} ${esc(GTM_TITOLI[n-1])}</span><span class="small muted">apri</span></a>`).join("")}</div>`:""}</div>`;
+}
+
 function setSync(t){document.getElementById("sync").textContent=t}
 function salva(){
   try{localStorage.setItem("sessione-inverno",JSON.stringify(S))}catch(e){}
@@ -601,6 +626,8 @@ async function avviaDb(){
     if(snap.exists){carica(snap.data()); ultimoSalvato=JSON.stringify(S); render()}
     else{await docRef.set(JSON.parse(JSON.stringify(S))); ultimoSalvato=JSON.stringify(S)}
     setSync("Sincronizzato su tutti i dispositivi");
+    db.collection("data/users/"+id).doc("gtm-mappe").onSnapshot(sn=>{ if(!sn.exists) return; const m=sn.data();
+      if(!MAPPE||(m.updated||0)>=(MAPPE.updated||0)){MAPPE=m; try{localStorage.setItem("gtm-mappe",JSON.stringify(m))}catch(e){} render()} },()=>{});
     docRef.onSnapshot(sn=>{ if(!sn.exists||sn.metadata.hasPendingWrites) return;
       const b=JSON.stringify(sn.data()); if(b!==ultimoSalvato&&b!==JSON.stringify(S)){carica(sn.data()); ultimoSalvato=b; render()} },()=>{});
   }catch(e){setSync("Salvato su questo dispositivo")}
@@ -811,6 +838,7 @@ function vOggi(){
     if(due.length) h+=`<h2>Ripassi di oggi</h2><div class="card">${due.slice(0,cap).map(ripRiga).join("")}${due.length>cap?`<p class="small muted" style="margin-top:10px">Altri ${due.length-cap} in coda per domani: prima le materie con l'esame più vicino.</p>`:""}</div>`;
     const sett=[...Array(7)].map((_,i)=>addDays(OGGI,i+1)).map(g=>[g,ripDovuti(g).length]);
     if(sett.some(x=>x[1])) h+=`<p class="small muted" style="margin-top:10px">Prossimi ripassi: ${sett.map(([g,n])=>`${GIORNI[parse(g).getDay()].slice(0,3)} <b class="num">${n}</b>`).join(" · ")}</p>`}
+  if(s===OGGI && (MAPPE || OGGI<=materia("tm").esame)) h+=mappeCard();
   if(late.length) h+=`<details class="fold"><summary><span>In ritardo</span><span class="cnt late num">${late.length}</span></summary><div class="card">${late.slice(0,6).map(unitRow).join("")}${late.length>6?`<p class="small muted" style="padding-top:8px">…e altre ${late.length-6} in Materie.</p>`:""}</div>
     <p class="small muted" style="margin-top:8px">Non recuperare tutto in una sera: un blocco in più al sabato basta.</p></details>`;
   if(s===OGGI){const aperte=MATERIE.filter(m=>!S.iscritto?.[m.id]&&OGGI>=m.iscr[0]&&OGGI<=m.iscr[1]);
@@ -1285,6 +1313,7 @@ function xpTotale(){
   x+=Object.keys(S.palestra||{}).length*10;
   x+=vals(S.dadi).reduce((a,n)=>a+n,0)*5;
   x+=vals(S.rip).reduce((a,r)=>a+(r.n||0),0)*5;
+  x+=xpMappe();
   return x;
 }
 const livelloDi=x=>Math.floor(Math.sqrt(x/50))+1, sogliaLiv=l=>50*(l-1)*(l-1);
@@ -1389,7 +1418,7 @@ function schedaCasella(c){
 
 /* ============ RENDER E EVENTI ============ */
 function render(){
-  const c1=avviaPalazzi(), c2=avviaRip(); if(c1||c2) salva();
+  const c0=applicaMappe(), c1=avviaPalazzi(), c2=avviaRip(); if(c0||c1||c2) salva();
   renderTesta();
   const v=document.getElementById("view");
   renderLvl();
