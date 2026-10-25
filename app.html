@@ -446,6 +446,12 @@ function xpMappe(){ if(!MAPPE) return 0; let x=0;
   for(const c of Object.values(MAPPE.cap||{})) x+=(c.studiato?30:0)+(c.esercizio?20:0)+(c.quizOk||0)*5+Math.floor((c.sec||0)/900)*5+(c.rip?.n||0)*5;
   return x }
 const ripMappeDovuti=s=>MAPPE?Object.entries(MAPPE.cap||{}).filter(([n,c])=>c.studiato&&c.rip&&c.rip.next<=s).map(([n])=>+n).sort((a,b)=>a-b):[];
+function frCard(){
+  let p={}; try{p=JSON.parse(localStorage.getItem("objectifB1-progress"))||{}}catch(e){}
+  const xp=p.xp||0, liv=["Stagiaire","Assistant·e","Chargé·e de mission","Chef de projet","Manager","Directeur·rice","PDG"][Math.min(Math.floor(xp/150),6)];
+  return `<div class="card" style="margin-top:16px;${sc("fr")}"><div class="row" style="justify-content:space-between"><span><span class="dot"></span><b>Objectif B1 · Francese</b></span><a class="btn ghost sm" href="francese-b1.html" target="_blank" rel="noopener">Apri la piattaforma</a></div>
+    <p class="small muted" style="margin-top:6px"><span class="num">${xp}</span> XP · ${liv} · <span class="num">${Object.keys(p.topics||{}).length}</span> argomenti fatti · serie <span class="num">${p.streak||0}</span> g · <span class="num">${(p.badges||[]).length}</span>/10 badge</p></div>`;
+}
 function mappeCard(){
   const due=ripMappeDovuti(OGGI), fatti=Object.values(MAPPE?.cap||{}).filter(c=>c.studiato).length;
   const min=Math.round(Object.values(MAPPE?.cap||{}).reduce((a,c)=>a+(c.sec||0),0)/60);
@@ -696,6 +702,7 @@ function vOggi(){
     if(due.length) h+=`<h2>Ripassi di oggi</h2><div class="card">${due.slice(0,cap).map(ripRiga).join("")}${due.length>cap?`<p class="small muted" style="margin-top:10px">Altri ${due.length-cap} in coda per domani: prima le materie con l'esame più vicino.</p>`:""}</div>`;
     const sett=[...Array(7)].map((_,i)=>addDays(OGGI,i+1)).map(g=>[g,ripDovuti(g).length]);
     if(sett.some(x=>x[1])) h+=`<p class="small muted" style="margin-top:10px">Prossimi ripassi: ${sett.map(([g,n])=>`${GIORNI[parse(g).getDay()].slice(0,3)} <b class="num">${n}</b>`).join(" · ")}</p>`}
+  if(s===OGGI && OGGI<=materia("fr").esame) h+=frCard();
   if(s===OGGI && (MAPPE || OGGI<=materia("tm").esame)) h+=mappeCard();
   if(late.length) h+=`<details class="fold"><summary><span>In ritardo</span><span class="cnt late num">${late.length}</span></summary><div class="card">${late.slice(0,6).map(unitRow).join("")}${late.length>6?`<p class="small muted" style="padding-top:8px">…e altre ${late.length-6} in Materie.</p>`:""}</div>
     <p class="small muted" style="margin-top:8px">Non recuperare tutto in una sera: un blocco in più al sabato basta.</p></details>`;
@@ -875,6 +882,7 @@ function vMetodo(){
     <p><b>Blocchi da 20 minuti,</b> poi 5 di pausa lontano dalla sedia. Due blocchi bastano.</p>
   </div>
   <h2>Francese: solo il formato d'esame</h2>
+  <p style="margin:0 0 10px"><a class="btn ghost sm" href="francese-b1.html" target="_blank" rel="noopener">Apri Objectif B1, la piattaforma di ripasso</a></p>
   <div class="card stack small">
     <p><b>Con un C1 la lingua c'è già.</b> Il corso è B1. Lavori solo su quello che l'esame premia: formato del mail, lessico business dei 4 temi del libro (spostamenti, risorse umane, marketing, clienti) e la presentazione. Sono 8 sessioni da 45', il martedì sera.</p>
     <p><b>Il punto debole possibile è il lessico tecnico del libro.</b> Se nella simulazione dell'11 marzo 2024 trovi parole che non conosci, fai una lista per tema. Il libro puoi chiederlo in prestito per un'ora, senza comprarlo.</p>
