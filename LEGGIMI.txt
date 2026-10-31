@@ -1,9 +1,9 @@
 Carica nella radice del repository winter-arc (sostituendo quelli esistenti):
-- experience-branding.html  (la piattaforma di studio Experience Branding)
-- cartella eb-data/  (contenuti dei capitoli + testo del libro per l'AI)
-- app.html, index.html  (aggiunta la scheda "Experience Branding · studio" in Oggi, gli XP della piattaforma nel totale, la sincronizzazione tra dispositivi)
-- sw.js  (ogni pagina ora ha la sua copia offline: prima aprire una piattaforma poteva sostituire l'app nella cache)
+- experience-branding.html + cartella eb-data/  (piattaforma Experience Branding)
+- luxury-companies.html + cartella lux-data/  (piattaforma Luxury Companies, "il tuo gruppo")
+- app.html, index.html  (in Oggi: schede Experience Branding e Luxury Companies, promemoria slide Luxury, XP delle piattaforme nel totale, sincronizzazione)
+- sw.js  (ogni pagina ha la sua copia offline)
 
-Vercel ripubblica da solo. La piattaforma usa la stessa password e lo stesso /api/claude dell'app per le domande generate e la correzione delle risposte aperte.
-Con Upstash collegato, i progressi si sincronizzano tra telefono e PC (documento "experience-branding").
-Per i capitoli successivi basterà caricare i nuovi file in eb-data/ e il nuovo eb-data/index.js.
+Vercel ripubblica da solo. Le piattaforme usano la stessa password e /api/claude dell'app.
+Promemoria slide Luxury: compare in Oggi il lunedì e ogni 7 giorni finché nella piattaforma non premi "Le ho caricate".
+Per nuovi contenuti basterà caricare i file aggiornati in eb-data/ o lux-data/ (incluso index.js).
