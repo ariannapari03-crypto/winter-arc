@@ -1,5 +1,9 @@
-Carica questi 4 file nella radice del repository winter-arc (sostituendo quelli esistenti):
-- francese-b1.html  (la piattaforma Objectif B1, autonoma, audio inclusi)
-- app.html, index.html  (aggiunti la scheda "Objectif B1 · Francese" in Oggi e il pulsante nella sezione Francese)
-- sw.js  (la piattaforma funziona anche offline)
-Vercel ripubblica da solo. Visto che app e piattaforma stanno sullo stesso indirizzo, la scheda in Oggi mostra XP, livello, argomenti fatti, serie e badge della piattaforma.
+Carica nella radice del repository winter-arc (sostituendo quelli esistenti):
+- experience-branding.html  (la piattaforma di studio Experience Branding)
+- cartella eb-data/  (contenuti dei capitoli + testo del libro per l'AI)
+- app.html, index.html  (aggiunta la scheda "Experience Branding · studio" in Oggi, gli XP della piattaforma nel totale, la sincronizzazione tra dispositivi)
+- sw.js  (ogni pagina ora ha la sua copia offline: prima aprire una piattaforma poteva sostituire l'app nella cache)
+
+Vercel ripubblica da solo. La piattaforma usa la stessa password e lo stesso /api/claude dell'app per le domande generate e la correzione delle risposte aperte.
+Con Upstash collegato, i progressi si sincronizzano tra telefono e PC (documento "experience-branding").
+Per i capitoli successivi basterà caricare i nuovi file in eb-data/ e il nuovo eb-data/index.js.
