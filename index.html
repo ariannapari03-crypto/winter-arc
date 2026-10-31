@@ -461,7 +461,7 @@ function blocchi(prefix, subj, fonte, fmt, tot, n, a, base){
 }
 const UNITA_BASE = [
   ...blocchi("gtm","tm","Go to Market (Castaldo, Acconciamessa)","stampato",149,5,1),
-  ...blocchi("dl","tm","Digital Loyalty","Kindle",192,6,2,["cap. 1","cap. 2","cap. 3","cap. 4","cap. 7","cap. 8"]),
+  ...blocchi("dl","tm","Digital Loyalty","Kindle",192,6,2,["cap. 1","cap. 2","cap. 3–4","cap. 5–6","cap. 7–8","cap. 9"]),
   ...blocchi("eb","eb","Experience Branding and Retailing","Egea digitabook",120,4,3),
   ...blocchi("b2b","b2b","B2B Reading Collection","paper stampati + Adobe DE",338,10,[3,4,4,4,4,5,5,5,5,5]),
   {id:"lx1",s:"lux",t:"Resilience of Luxury Companies (Lojacono, Pan)",p:18,fmt:"stampato",a:6},
@@ -581,15 +581,37 @@ function leggiMappeLocali(){try{const l=localStorage.getItem("gtm-mappe"); if(l)
 leggiMappeLocali();
 addEventListener("storage",e=>{if(e.key==="gtm-mappe"){leggiMappeLocali(); render()}});
 const capM=n=>MAPPE?.cap?.[n]||{};
-function applicaMappe(){ if(!MAPPE) return false; let c=false;
+// Digital Loyalty: stesse regole, documento "dl-mappe", capitoli 1–9 → blocchi dl1..dl6
+const DL_BLOCCHI={dl1:[1],dl2:[2],dl3:[3,4],dl4:[5,6],dl5:[7,8],dl6:[9]};
+const DL_TITOLI={1:"Omni-channel marketing",2:"Trasformazione del retail",3:"Touchpoint digitali",4:"Gli enabler",5:"Il metodo della ricerca",6:"Cosa dicono i manager",7:"Casi di digital loyalty",8:"Il caso TCC",9:"Conclusioni e implicazioni"};
+let MAPPE_DL=null;
+function leggiDlLocali(){try{const l=localStorage.getItem("dl-mappe"); if(l) MAPPE_DL=JSON.parse(l)}catch(e){}}
+leggiDlLocali();
+addEventListener("storage",e=>{if(e.key==="dl-mappe"){leggiDlLocali(); render()}});
+const capD=n=>MAPPE_DL?.cap?.[n]||{};
+const xpDi=M=>{let x=0; for(const c of Object.values(M?.cap||{})) x+=(c.studiato?30:0)+(c.esercizio?20:0)+(c.quizOk||0)*5+Math.floor((c.sec||0)/900)*5+(c.rip?.n||0)*5+(c.eserOk||0)*10+(c.steps?.ascolto?15:0); return x};
+function applicaMappe(){ let c=false;
+  if(MAPPE_DL) for(const [id,caps] of Object.entries(DL_BLOCCHI)){
+    if(caps.every(n=>capD(n).steps?.ascolto) && (S.fasi[id]||0)<1){S.fasi[id]=1; c=true}
+    if(caps.every(n=>capD(n).studiato) && (S.fasi[id]||0)<2){S.fasi[id]=2; c=true} }
+  if(!MAPPE) return c;
   for(const [id,caps] of Object.entries(GTM_BLOCCHI)){
     if(caps.every(n=>capM(n).steps?.ascolto) && (S.fasi[id]||0)<1){S.fasi[id]=1; c=true}
     if(caps.every(n=>capM(n).studiato) && (S.fasi[id]||0)<2){S.fasi[id]=2; c=true} }
   return c }
-function xpMappe(){ if(!MAPPE) return 0; let x=0;
+function xpMappe(){ let x=xpDi(MAPPE_DL); if(!MAPPE) return x;
   for(const c of Object.values(MAPPE.cap||{})) x+=(c.studiato?30:0)+(c.esercizio?20:0)+(c.quizOk||0)*5+Math.floor((c.sec||0)/900)*5+(c.rip?.n||0)*5+(c.eserOk||0)*10+(c.steps?.ascolto?15:0);
   return x }
 const ripMappeDovuti=s=>MAPPE?Object.entries(MAPPE.cap||{}).filter(([n,c])=>c.studiato&&c.rip&&c.rip.next<=s).map(([n])=>+n).sort((a,b)=>a-b):[];
+function dlCard(){
+  const C=MAPPE_DL?.cap||{}, due=Object.entries(C).filter(([n,c])=>c.studiato&&c.rip&&c.rip.next<=OGGI).map(([n])=>+n), esDue=Object.entries(C).filter(([n,c])=>c.exRip&&c.exRip.next<=OGGI).map(([n])=>+n);
+  const fatti=Object.values(C).filter(c=>c.studiato).length, min=Math.round(Object.values(C).reduce((a,c)=>a+(c.sec||0),0)/60);
+  const riga=(n,lab,az)=>`<a class="fold-link" href="mappe-dl.html#cap${n}" target="_blank" rel="noopener"><span>${lab} · cap. ${n} ${esc(DL_TITOLI[n]||"")}</span><span class="small muted">${az}</span></a>`;
+  return `<div class="card" style="margin-top:16px;${sc("tm")}"><div class="row" style="justify-content:space-between"><span><span class="dot"></span><b>Mappe Digital Loyalty</b></span><a class="btn ghost sm" href="mappe-dl.html" target="_blank" rel="noopener">Apri le mappe</a></div>
+    <p class="small muted" style="margin-top:6px"><span class="num">${fatti}</span>/9 capitoli studiati · <span class="num">${min}</span> min · +<span class="num">${xpDi(MAPPE_DL)}</span> XP</p>
+    ${due.length?`<div class="stack" style="margin-top:8px">${due.map(n=>riga(n,"Ripasso","apri")).join("")}</div>`:""}
+    ${esDue.length?`<div class="stack" style="margin-top:8px">${esDue.map(n=>riga(n,"Esercizio","rifai")).join("")}</div>`:""}</div>`;
+}
 function mappeCard(){
   const due=ripMappeDovuti(OGGI), esDue=MAPPE?Object.entries(MAPPE.cap||{}).filter(([n,c])=>c.exRip&&c.exRip.next<=OGGI).map(([n])=>+n).sort((a,b)=>a-b):[], fatti=Object.values(MAPPE?.cap||{}).filter(c=>c.studiato).length;
   const min=Math.round(Object.values(MAPPE?.cap||{}).reduce((a,c)=>a+(c.sec||0),0)/60);
@@ -597,36 +619,6 @@ function mappeCard(){
     <p class="small muted" style="margin-top:6px"><span class="num">${fatti}</span>/11 capitoli studiati · <span class="num">${min}</span> min · +<span class="num">${xpMappe()}</span> XP</p>
     ${due.length?`<div class="stack" style="margin-top:8px">${due.map(n=>`<a class="fold-link" href="mappe-gtm.html#cap${n}" target="_blank" rel="noopener"><span>Ripasso · cap. ${n} ${esc(GTM_TITOLI[n-1])}</span><span class="small muted">apri</span></a>`).join("")}</div>`:""}
     ${esDue.length?`<div class="stack" style="margin-top:8px">${esDue.map(n=>`<a class="fold-link" href="mappe-gtm.html#cap${n}" target="_blank" rel="noopener"><span>Esercizio · cap. ${n} ${esc(GTM_TITOLI[n-1])}</span><span class="small muted">rifai</span></a>`).join("")}</div>`:""}</div>`;
-}
-
-/* ============ EXPERIENCE BRANDING STUDIO (experience-branding.html) ============ */
-// La piattaforma salva l'avanzamento in "experience-branding" (localStorage + documento data/users/io/experience-branding).
-let EBS=null;
-function leggiEbLocale(){try{const l=localStorage.getItem("experience-branding"); if(l) EBS=JSON.parse(l)}catch(e){}}
-leggiEbLocale();
-addEventListener("storage",e=>{if(e.key==="experience-branding"){leggiEbLocale(); render()}});
-addEventListener("focus",()=>{const prima=JSON.stringify(EBS); leggiEbLocale(); if(JSON.stringify(EBS)!==prima) render()});
-function serieEb(){const set=new Set(EBS?.days||[]); let d=set.has(OGGI)?OGGI:addDays(OGGI,-1), n=0; while(set.has(d)){n++; d=addDays(d,-1)} return n}
-function ebCard(){
-  const x=EBS||{}, err=Object.keys(x.wrong||{}).length, nb=Object.keys(x.badges||{}).length;
-  return `<div class="card" style="margin-top:16px;${sc("eb")}"><div class="row" style="justify-content:space-between"><span><span class="dot"></span><b>Experience Branding · studio</b></span><a class="btn ghost sm" href="experience-branding.html" target="_blank" rel="noopener">Apri</a></div>
-    <p class="small muted" style="margin-top:6px">Livello <span class="num">${x.livello||1}</span> · <span class="num">${x.xp||0}</span> XP · serie <span class="num">${serieEb()}</span> · <span class="num">${nb}</span>/12 badge · padronanza <span class="num">${x.padronanza||0}</span>%</p>
-    <div class="stack" style="margin-top:8px">${err?`<a class="fold-link" href="experience-branding.html#review" target="_blank" rel="noopener"><span>Ripasso errori · ${err} ${err===1?"domanda":"domande"}</span><span class="small muted">apri</span></a>`:""}<a class="fold-link" href="experience-branding.html#challenge" target="_blank" rel="noopener"><span>Sfida a tempo · record ${x.best||0}</span><span class="small muted">gioca</span></a></div></div>`;
-}
-
-/* ============ LUXURY COMPANIES STUDIO (luxury-companies.html) ============ */
-// La piattaforma salva l'avanzamento in "luxury-companies" (localStorage + documento data/users/io/luxury-companies).
-let LXS=null;
-function leggiLuxLocale(){try{const l=localStorage.getItem("luxury-companies"); if(l) LXS=JSON.parse(l)}catch(e){}}
-leggiLuxLocale();
-addEventListener("storage",e=>{if(e.key==="luxury-companies"){leggiLuxLocale(); render()}});
-addEventListener("focus",()=>{const prima=JSON.stringify(LXS); leggiLuxLocale(); if(JSON.stringify(LXS)!==prima) render()});
-function slideLuxDovute(){const sl=LXS?.slides||{}; if(sl.done) return false; if(!sl.checked) return true; return diff(sl.checked,OGGI)>=7 || (parse(OGGI).getDay()===1 && sl.checked!==OGGI)}
-function luxCard(){
-  const x=LXS||{}, err=Object.keys(x.wrong||{}).length, nb=Object.keys(x.badges||{}).length;
-  return `<div class="card" style="margin-top:16px;${sc("lux")}"><div class="row" style="justify-content:space-between"><span><span class="dot"></span><b>Luxury Companies · il tuo gruppo</b></span><a class="btn ghost sm" href="luxury-companies.html" target="_blank" rel="noopener">Apri</a></div>
-    <p class="small muted" style="margin-top:6px">Valore € <span class="num">${x.xp||0}</span> M · rango ${esc(x.rango||"Boutique")} · <span class="num">${nb}</span>/12 badge · padronanza <span class="num">${x.padronanza||0}</span>%</p>
-    <div class="stack" style="margin-top:8px">${slideLuxDovute()?`<a class="fold-link" href="luxury-companies.html" target="_blank" rel="noopener"><span><b>Slide Luxury:</b> controlla Blackboard (corso 20671) e mandale a Claude</span><span class="small late">da fare</span></a>`:""}${err?`<a class="fold-link" href="luxury-companies.html#review" target="_blank" rel="noopener"><span>Ripasso errori · ${err} ${err===1?"domanda":"domande"}</span><span class="small muted">apri</span></a>`:""}<a class="fold-link" href="luxury-companies.html#calc" target="_blank" rel="noopener"><span>Calcoli dai casi</span><span class="small muted">allenati</span></a></div></div>`;
 }
 
 function setSync(t){document.getElementById("sync").textContent=t}
@@ -661,10 +653,8 @@ async function avviaDb(){
     setSync("Sincronizzato su tutti i dispositivi");
     db.collection("data/users/"+id).doc("gtm-mappe").onSnapshot(sn=>{ if(!sn.exists) return; const m=sn.data();
       if(!MAPPE||(m.updated||0)>=(MAPPE.updated||0)){MAPPE=m; try{localStorage.setItem("gtm-mappe",JSON.stringify(m))}catch(e){} render()} },()=>{});
-    db.collection("data/users/"+id).doc("experience-branding").onSnapshot(sn=>{ if(!sn.exists) return; const m=sn.data();
-      if(!EBS||(m.aggiornato||"")>=(EBS.aggiornato||"")){EBS=m; try{localStorage.setItem("experience-branding",JSON.stringify(m))}catch(e){} render()} },()=>{});
-    db.collection("data/users/"+id).doc("luxury-companies").onSnapshot(sn=>{ if(!sn.exists) return; const m=sn.data();
-      if(!LXS||(m.aggiornato||"")>=(LXS.aggiornato||"")){LXS=m; try{localStorage.setItem("luxury-companies",JSON.stringify(m))}catch(e){} render()} },()=>{});
+    db.collection("data/users/"+id).doc("dl-mappe").onSnapshot(sn=>{ if(!sn.exists) return; const m=sn.data();
+      if(!MAPPE_DL||(m.updated||0)>=(MAPPE_DL.updated||0)){MAPPE_DL=m; try{localStorage.setItem("dl-mappe",JSON.stringify(m))}catch(e){} render()} },()=>{});
     docRef.onSnapshot(sn=>{ if(!sn.exists||sn.metadata.hasPendingWrites) return;
       const b=JSON.stringify(sn.data()); if(b!==ultimoSalvato&&b!==JSON.stringify(S)){carica(sn.data()); ultimoSalvato=b; render()} },()=>{});
   }catch(e){setSync("Salvato su questo dispositivo")}
@@ -876,8 +866,7 @@ function vOggi(){
     const sett=[...Array(7)].map((_,i)=>addDays(OGGI,i+1)).map(g=>[g,ripDovuti(g).length]);
     if(sett.some(x=>x[1])) h+=`<p class="small muted" style="margin-top:10px">Prossimi ripassi: ${sett.map(([g,n])=>`${GIORNI[parse(g).getDay()].slice(0,3)} <b class="num">${n}</b>`).join(" · ")}</p>`}
   if(s===OGGI && (MAPPE || OGGI<=materia("tm").esame)) h+=mappeCard();
-  if(s===OGGI && (EBS || OGGI<=materia("eb").esame)) h+=ebCard();
-  if(s===OGGI && (LXS || OGGI<=materia("lux").esame)) h+=luxCard();
+  if(s===OGGI && (MAPPE_DL || OGGI<=materia("tm").esame)) h+=dlCard();
   if(late.length) h+=`<details class="fold"><summary><span>In ritardo</span><span class="cnt late num">${late.length}</span></summary><div class="card">${late.slice(0,6).map(unitRow).join("")}${late.length>6?`<p class="small muted" style="padding-top:8px">…e altre ${late.length-6} in Materie.</p>`:""}</div>
     <p class="small muted" style="margin-top:8px">Non recuperare tutto in una sera: un blocco in più al sabato basta.</p></details>`;
   if(s===OGGI){const aperte=MATERIE.filter(m=>!S.iscritto?.[m.id]&&OGGI>=m.iscr[0]&&OGGI<=m.iscr[1]);
@@ -1353,8 +1342,6 @@ function xpTotale(){
   x+=vals(S.dadi).reduce((a,n)=>a+n,0)*5;
   x+=vals(S.rip).reduce((a,r)=>a+(r.n||0),0)*5;
   x+=xpMappe();
-  x+=EBS?.xp||0;
-  x+=LXS?.xp||0;
   return x;
 }
 const livelloDi=x=>Math.floor(Math.sqrt(x/50))+1, sogliaLiv=l=>50*(l-1)*(l-1);
