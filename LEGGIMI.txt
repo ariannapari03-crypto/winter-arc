@@ -1,9 +1,9 @@
-Carica nella radice del repository winter-arc (sostituendo quelli esistenti):
-- experience-branding.html + cartella eb-data/  (piattaforma Experience Branding)
-- luxury-companies.html + cartella lux-data/  (piattaforma Luxury Companies, "il tuo gruppo")
-- app.html, index.html  (in Oggi: schede Experience Branding e Luxury Companies, promemoria slide Luxury, XP delle piattaforme nel totale, sincronizzazione)
-- sw.js  (ogni pagina ha la sua copia offline)
-
-Vercel ripubblica da solo. Le piattaforme usano la stessa password e /api/claude dell'app.
-Promemoria slide Luxury: compare in Oggi il lunedì e ogni 7 giorni finché nella piattaforma non premi "Le ho caricate".
-Per nuovi contenuti basterà caricare i file aggiornati in eb-data/ o lux-data/ (incluso index.js).
+Carica nella radice del repository winter-arc (branch main):
+- francese-b1.html  → piattaforma Objectif B1 (nuovo file)
+- inglese-c1.html   → piattaforma PES//C1 (nuovo file)
+- cartella audio-en/ → i 6 audio del corso di inglese (nuova cartella, accanto a inglese-c1.html)
+- app.html, index.html → SOSTITUISCONO quelli esistenti. Sono la versione attuale del repo (31 ottobre) con aggiunte solo:
+    · scheda "Objectif B1 · Francese" e scheda "PES//C1 · English Seminars" nella vista Oggi (visibili fino al giorno dell'esame)
+    · pulsante "Apri…" sotto i titoli "Francese: solo il formato d'esame" e "Inglese: la prova è scrivere"
+sw.js non va toccato: quello del repo mette già in cache le pagine visitate, quindi le due piattaforme funzionano offline dopo la prima apertura (gli audio di inglese no).
+Vercel ripubblica da solo dopo il commit.

@@ -612,6 +612,20 @@ function dlCard(){
     ${due.length?`<div class="stack" style="margin-top:8px">${due.map(n=>riga(n,"Ripasso","apri")).join("")}</div>`:""}
     ${esDue.length?`<div class="stack" style="margin-top:8px">${esDue.map(n=>riga(n,"Esercizio","rifai")).join("")}</div>`:""}</div>`;
 }
+function frCard(){
+  let p={}; try{p=JSON.parse(localStorage.getItem("objectifB1-progress"))||{}}catch(e){}
+  const xp=p.xp||0, L=["Stagiaire","Assistant·e","Chargé·e de mission","Chef de projet","Manager","Directeur·rice","PDG"], n=Math.floor(xp/150), liv=n<7?L[n]:"PDG ★"+(n-5);
+  return `<div class="card" style="margin-top:16px;${sc("fr")}"><div class="row" style="justify-content:space-between"><span><span class="dot"></span><b>Objectif B1 · Francese</b></span><a class="btn ghost sm" href="francese-b1.html" target="_blank" rel="noopener">Apri la piattaforma</a></div>
+    <p class="small muted" style="margin-top:6px"><span class="num">${xp}</span> XP · ${liv} · <span class="num">${Object.keys(p.topics||{}).length}</span> argomenti fatti · serie <span class="num">${p.streak||0}</span> g · <span class="num">${(p.badges||[]).length}</span>/10 badge</p></div>`;
+}
+function enCard(){
+  let p={}; try{p=JSON.parse(localStorage.getItem("pes-c1-v1"))||{}}catch(e){}
+  const eq=p.eq||0, R=[["Intern",0],["Analyst",400],["Associate",1000],["Senior Associate",1800],["Manager",2800],["Director",4200],["Vice President",6000],["CEO",8500]];
+  let r=0; R.forEach((x,i)=>{ if(eq>=x[1]) r=i; });
+  const boss=Object.values(p.bosses||{}).filter(b=>b.won).length;
+  return `<div class="card" style="margin-top:16px;${sc("en")}"><div class="row" style="justify-content:space-between"><span><span class="dot"></span><b>PES//C1 · English Seminars</b></span><a class="btn ghost sm" href="inglese-c1.html" target="_blank" rel="noopener">Apri la piattaforma</a></div>
+    <p class="small muted" style="margin-top:6px"><span class="num">${eq}</span> EQ · ${R[r][0]} · boss battuti <span class="num">${boss}</span>/5 · serie <span class="num">${p.streak||0}</span> g</p></div>`;
+}
 function mappeCard(){
   const due=ripMappeDovuti(OGGI), esDue=MAPPE?Object.entries(MAPPE.cap||{}).filter(([n,c])=>c.exRip&&c.exRip.next<=OGGI).map(([n])=>+n).sort((a,b)=>a-b):[], fatti=Object.values(MAPPE?.cap||{}).filter(c=>c.studiato).length;
   const min=Math.round(Object.values(MAPPE?.cap||{}).reduce((a,c)=>a+(c.sec||0),0)/60);
@@ -865,6 +879,8 @@ function vOggi(){
     if(due.length) h+=`<h2>Ripassi di oggi</h2><div class="card">${due.slice(0,cap).map(ripRiga).join("")}${due.length>cap?`<p class="small muted" style="margin-top:10px">Altri ${due.length-cap} in coda per domani: prima le materie con l'esame più vicino.</p>`:""}</div>`;
     const sett=[...Array(7)].map((_,i)=>addDays(OGGI,i+1)).map(g=>[g,ripDovuti(g).length]);
     if(sett.some(x=>x[1])) h+=`<p class="small muted" style="margin-top:10px">Prossimi ripassi: ${sett.map(([g,n])=>`${GIORNI[parse(g).getDay()].slice(0,3)} <b class="num">${n}</b>`).join(" · ")}</p>`}
+  if(s===OGGI && OGGI<=materia("fr").esame) h+=frCard();
+  if(s===OGGI && OGGI<=materia("en").esame) h+=enCard();
   if(s===OGGI && (MAPPE || OGGI<=materia("tm").esame)) h+=mappeCard();
   if(s===OGGI && (MAPPE_DL || OGGI<=materia("tm").esame)) h+=dlCard();
   if(late.length) h+=`<details class="fold"><summary><span>In ritardo</span><span class="cnt late num">${late.length}</span></summary><div class="card">${late.slice(0,6).map(unitRow).join("")}${late.length>6?`<p class="small muted" style="padding-top:8px">…e altre ${late.length-6} in Materie.</p>`:""}</div>
@@ -1045,6 +1061,7 @@ function vMetodo(){
     <p><b>Blocchi da 20 minuti,</b> poi 5 di pausa lontano dalla sedia. Due blocchi bastano.</p>
   </div>
   <h2>Francese: solo il formato d'esame</h2>
+  <p style="margin:0 0 10px"><a class="btn ghost sm" href="francese-b1.html" target="_blank" rel="noopener">Apri Objectif B1, la piattaforma di ripasso</a></p>
   <div class="card stack small">
     <p><b>Con un C1 la lingua c'è già.</b> Il corso è B1. Lavori solo su quello che l'esame premia: formato del mail, lessico business dei 4 temi del libro (spostamenti, risorse umane, marketing, clienti) e la presentazione. Sono 8 sessioni da 45', il martedì sera.</p>
     <p><b>Il punto debole possibile è il lessico tecnico del libro.</b> Se nella simulazione dell'11 marzo 2024 trovi parole che non conosci, fai una lista per tema. Il libro puoi chiederlo in prestito per un'ora, senza comprarlo.</p>
@@ -1054,6 +1071,7 @@ function vMetodo(){
     <p class="muted">Altre risorse dalla lista del corso: TV5 Monde (esercizi), lyricstraining.com, serie come <i>Dix pour cent</i> nelle sere libere.</p>
   </div>
   <h2>Inglese: la prova è scrivere</h2>
+  <p style="margin:0 0 10px"><a class="btn ghost sm" href="inglese-c1.html" target="_blank" rel="noopener">Apri PES//C1, la piattaforma di allenamento</a></p>
   <div class="card stack small">
     <p><b>Due parti su tre sono scrittura,</b> e la prima parte comincia da un ascolto. È il tuo terreno: ascolti bene, e ti serve trasformare gli appunti in un testo breve e ben costruito.</p>
     <p><b>Allenamento della Parte 1:</b> prendi uno degli audio del corso (podcast Accenture, Kellaway, report writing), ascoltalo 2 volte prendendo appunti, scrivi 150–180 parole. Poi «Correggi il mio writing di prova» nell'Assistente. Una volta a settimana dalle feste in poi basta.</p>
