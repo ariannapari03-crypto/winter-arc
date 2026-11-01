@@ -552,6 +552,13 @@ const PIANO_NOV={gtm1:3,gtm2:3,gtm3:3,gtm4:3, gtm5:4,dl1:4,dl2:4,dl3:4, dl4:5,dl
 UNITA_BASE.forEach(u=>{if(PIANO_NOV[u.id]) u.a=PIANO_NOV[u.id]});
 const GIOCHI={tm:"mappe-gtm.html",eb:"experience-branding.html",b2b:"b2b-marketing.html",lux:"luxury-companies.html",fr:"francese-b1.html",en:"inglese-c1.html"};
 const giocoDi=u=>!window.WA_VERCEL?"":u.id.startsWith("dl")?"mappe-dl.html":GIOCHI[u.s]||"";
+// Titolo corto per i blocchi della giornata: capitoli veri dove i giochi li hanno, senza autori e pagine.
+function titoloBreve(u){
+  const cap=(B,id)=>{const c=B[id]; return c.length>1?`cap. ${c[0]}–${c[c.length-1]}`:`cap. ${c[0]}`};
+  if(typeof GTM_BLOCCHI!=="undefined"&&GTM_BLOCCHI[u.id]) return "Go to Market · "+cap(GTM_BLOCCHI,u.id);
+  if(typeof DL_BLOCCHI!=="undefined"&&DL_BLOCCHI[u.id]) return "Digital Loyalty · "+cap(DL_BLOCCHI,u.id);
+  return u.t.replace(/\s*\([^)]*\)/g,"").replace(/\s*·\s*≈\s*pp\.[^·]*$/,"").replace(/^Luxury CX · /,"Luxury · ");
+}
 const FESTIVI=["2026-12-08","2026-12-25","2026-12-26","2027-01-01","2027-01-06"];
 const giornoLibero=s=>FESTIVI.includes(s)||(S.natale!=="No"&&s>="2026-12-24"&&s<="2027-01-06");
 const RIPASSO = { // finestre di ripasso intensivo prima di ogni esame
@@ -747,7 +754,7 @@ function blocchiGiorno(s){
   const libero=giornoLibero(s), fer=d>=1&&d<=5;
   const daFare=unita().filter(u=>u.a && u.a<=Math.max(w,1) && fase(u)<1 && materia(u.s)?.esame>=s && !S.superati?.[u.s])
     .sort((x,y)=>x.a-y.a||(materia(x.s).esame<materia(y.s).esame?-1:1));
-  const elenco=n=>daFare.slice(0,n).map(u=>`<span class="dot" style="${sc(u.s)}"></span>${esc(materia(u.s).breve)}: ${esc(u.t)}`).join("<br>");
+  const elenco=n=>daFare.slice(0,n).map(u=>`<span class="dot" style="${sc(u.s)}"></span>${esc(titoloBreve(u))}`).join("<br>");
   const giochi=n=>{const ls=[...new Map(daFare.slice(0,n).filter(giocoDi).map(u=>[giocoDi(u),u])).values()];
     return ls.length?"<br>"+ls.map(u=>`<a href="${giocoDi(u)}" target="_blank" rel="noopener">Apri il gioco · ${esc(u.id.startsWith("dl")?"Digital Loyalty":materia(u.s).breve)}</a>`).join(" · "):""};
   const priorita=focTxt?`Priorità: ripasso di ${focTxt}.<br>`:"";
@@ -897,10 +904,12 @@ function vOggi(){
     if(due.length) h+=`<h2>Ripassi di oggi</h2><div class="card">${due.slice(0,cap).map(ripRiga).join("")}${due.length>cap?`<p class="small muted" style="margin-top:10px">Altri ${due.length-cap} in coda per domani: prima le materie con l'esame più vicino.</p>`:""}</div>`;
     const sett=[...Array(7)].map((_,i)=>addDays(OGGI,i+1)).map(g=>[g,ripDovuti(g).length]);
     if(sett.some(x=>x[1])) h+=`<p class="small muted" style="margin-top:10px">Prossimi ripassi: ${sett.map(([g,n])=>`${GIORNI[parse(g).getDay()].slice(0,3)} <b class="num">${n}</b>`).join(" · ")}</p>`}
-  if(s===OGGI && OGGI<=materia("fr").esame) h+=frCard();
-  if(s===OGGI && OGGI<=materia("en").esame) h+=enCard();
-  if(s===OGGI && (MAPPE || OGGI<=materia("tm").esame)) h+=mappeCard();
-  if(s===OGGI && (MAPPE_DL || OGGI<=materia("tm").esame)) h+=dlCard();
+  if(s===OGGI){ // giochi: in vista solo se hanno ripassi o esercizi in scadenza, gli altri in una riga da aprire
+    const carte=[OGGI<=materia("fr").esame&&frCard(), OGGI<=materia("en").esame&&enCard(), (MAPPE||OGGI<=materia("tm").esame)&&mappeCard(), (MAPPE_DL||OGGI<=materia("tm").esame)&&dlCard()].filter(Boolean);
+    const urgenti=carte.filter(c=>/>(Ripasso|Esercizio) ·/.test(c)), altre=carte.filter(c=>!urgenti.includes(c));
+    h+=urgenti.join("");
+    if(altre.length) h+=`<details class="fold"><summary><span>Giochi e avanzamento</span><span class="cnt num">${altre.length}</span></summary>${altre.join("")}</details>`;
+  }
   if(late.length) h+=`<details class="fold"><summary><span>In ritardo</span><span class="cnt late num">${late.length}</span></summary><div class="card">${late.slice(0,6).map(unitRow).join("")}${late.length>6?`<p class="small muted" style="padding-top:8px">…e altre ${late.length-6} in Materie.</p>`:""}</div>
     <p class="small muted" style="margin-top:8px">Non recuperare tutto in una sera: un blocco in più al sabato basta.</p></details>`;
   if(s===OGGI){const aperte=MATERIE.filter(m=>!S.iscritto?.[m.id]&&OGGI>=m.iscr[0]&&OGGI<=m.iscr[1]);
