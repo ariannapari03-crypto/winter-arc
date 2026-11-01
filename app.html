@@ -262,6 +262,9 @@ nav.bot button{font-size:.88rem;letter-spacing:.06em;padding-inline:0}
 .row:has(> .tick){flex-wrap:nowrap;align-items:flex-start;gap:14px}
 .row > .tick{margin-top:1px}
 @media (max-width:360px){body{padding-inline:14px}.hero{gap:8px}.hero .next,.hero .lvl{padding:14px 12px}.hero .big{font-size:2.6rem}.blk{grid-template-columns:44px 1fr auto;gap:10px;padding:14px 12px}.board{gap:8px}.stats div{padding:12px 4px}}
+.gear{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:10px;width:44px;height:44px;font-size:1.3rem;display:grid;place-items:center;flex:0 0 auto}
+.back{margin-top:20px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:21}
 
 /* slide → dispensa */
@@ -288,6 +291,7 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
       <h1>Winter <em>arc</em></h1>
       <p class="motto" id="motto"></p>
     </div>
+    <button class="gear" data-v="casa" aria-label="Impostazioni">⚙</button>
   </header>
   <div class="hero"><div class="next" id="next"></div>
   <button class="lvl" id="lvl" data-v="percorso" aria-label="Apri il percorso"></button></div>
@@ -592,7 +596,7 @@ function blocchiGiorno(s){
       if(d===5) out.push({id:"libera",t:"Sera",k:"libero",b:"Sera libera",x:"Niente tesi."});
     } else if(d===6 && !aCasa){
       out.push({id:"sab",t:"09:30",k:"tesi",b:"Tesi (3h)",x:`${tt}. Prima rileggi e sistema quello scritto in settimana, poi vai avanti.`});
-    } else if(d===0 && !aCasa) out.push({id:"checkin",t:"18:00",k:"tesi",b:"Check-in settimanale (10')",x:"Apri Piano: guarda la prossima tappa della tesi e quanto manca."});
+    } else if(d===0 && !aCasa) out.push({id:"checkin",t:"18:00",k:"tesi",b:"Check-in settimanale (10')",x:"Apri Percorso: guarda la prossima tappa della tesi e quanto manca."});
     else if(aCasa) out.push({id:"viaggio",t:"—",k:"ascolto",b:d===6?"Weekend a casa":"Viaggio di ritorno (3h)",x:"In macchina: un paper o un podcast. La sessione del sabato si recupera in settimana."});
     return out;
   }
@@ -633,7 +637,7 @@ function blocchiGiorno(s){
   } else {
     out.push({id:"dom",t:"10:00",k:"studio",b:"Studio (2h)",x:studio(2)});
     if(exDomani) vigilia();
-    else out.push({id:"checkin",t:"18:00",k:"studio",b:"Check-in settimanale (10')",x:"Apri Piano: segna cosa hai chiuso e guarda la prossima settimana. Weekend a casa? Segnalo in Oggi."});
+    else out.push({id:"checkin",t:"18:00",k:"studio",b:"Check-in settimanale (10')",x:"Apri Percorso: guarda il calendario della prossima settimana. Weekend a casa? Segnalo in Oggi."});
   }
   return out;
 }
@@ -705,8 +709,8 @@ function ripRiga(u){const r=S.rip[u.id], m=materia(u.s), rit=diff(r.next,OGGI);
     ${S.tappe?.[u.id]?`<div class="small">${tappeTesto(u)}</div>`:""}<div class="small muted">${r.n+1}° ripasso · ${rit>0?`<span class="late">in ritardo di ${rit} ${rit===1?"giorno":"giorni"}</span>`:"oggi"} · esame ${fmtD(m.esame)}</div></div>
     <div class="row"><button class="btn ghost sm" data-rip="${u.id}" data-voto="0">Non ricordavo</button><button class="btn ghost sm" data-rip="${u.id}" data-voto="1">A fatica</button><button class="btn sm" data-rip="${u.id}" data-voto="2">Bene</button></div></div>`}
 /* ============ VISTE ============ */
-const VISTE=[["percorso","Percorso"],["oggi","Oggi"],["piano","Piano"],["materie","Materie"],["aiuto","Studio"],["casa","Altro"],["metodo","Metodo"]];
-const IN_NAV=["percorso","oggi","piano","materie","aiuto","casa"];
+const VISTE=[["oggi","Oggi"],["percorso","Percorso"],["piano","Piano"],["materie","Materie"],["aiuto","Studio"],["casa","Altro"],["metodo","Metodo"]];
+const IN_NAV=["oggi","percorso","materie"];
 VISTE.push(["slide","Slide"]);
 let vista="oggi";
 try{const h=location.hash.slice(1); if(VISTE.some(v=>v[0]===h)) vista=h}catch(e){}
@@ -761,7 +765,7 @@ function vOggi(){
   STAGE.filter(t=>!S.stageFatti?.[t.id]&&diff(s,addDays(fineStage(),t.off))<=21&&s>=W1).forEach(t=>{
     h+=`<div class="card" style="margin-top:12px"><span class="tag">Stage</span> <b>${esc(t.t)}</b> <span class="small muted">entro il ${fmtD(addDays(fineStage(),t.off))}</span><div class="small muted">${esc(t.x)}</div></div>`});
   const tProssima=TESI.find(t=>!S.tesi?.[t.id]);
-  if(tProssima && s>=W1) h+=`<button class="fold-link" data-v="piano"><span><span class="tag">Tesi</span> ${esc(tProssima.t)}</span><span class="small muted num">${scadTesi(tProssima)?fmtD(scadTesi(tProssima)):"—"}</span></button>`;
+  if(tProssima && s>=W1) h+=`<button class="fold-link" data-v="percorso"><span><span class="tag">Tesi</span> ${esc(tProssima.t)}</span><span class="small muted num">${scadTesi(tProssima)?fmtD(scadTesi(tProssima)):"—"}</span></button>`;
   const w0=Math.max(w,1), qs=unita().filter(u=>u.a===w0);
   if(qs.length) h+=`<details class="fold"><summary><span>Questa settimana</span><span class="cnt num">${qs.filter(u=>fase(u)>=1).length}/${qs.length}</span></summary><div class="legend" style="margin-bottom:8px">${FASI.map(f=>`<span style="--lc:var(--muted)">${f.k} = ${f.nome}</span>`).join("")}<span style="--lc:var(--c-fr)">Lingue: F = Fatto</span></div><div class="card">${qs.map(unitRow).join("")}</div></details>`;
   return h;
@@ -786,11 +790,7 @@ function unitRow(u){
 
 function vPiano(){
   const wNow=settimana(OGGI);
-  let h=`<h2>Esami</h2><div class="strip" aria-label="Calendario esami">${renderTesta.strip||""}</div><h2>Il piano in 16 settimane</h2><p class="muted small">Ascolti nella settimana indicata, mappi e fissi nel palazzo nella settimana dopo. Da Natale in poi si ripassa una materia alla volta, nell'ordine degli esami.</p>`;
-  h+=`<div class="card" style="margin-top:12px"><b>Natale:</b> <span class="small">l'azienda chiude?</span>
-    <div class="row" style="margin-top:6px">${["Sì","No","?"].map(v=>`<button class="btn ${S.natale===v?"":"ghost"}" data-natale="${v}">${v==="?"?"Non so ancora":v}</button>`).join("")}</div>
-    <p class="small muted" style="margin-top:6px">${S.natale==="No"?"Allora restano solo i festivi (8, 25, 26 dicembre, 1 e 6 gennaio): il piano si appoggia sui weekend. Dimmelo e lo ridistribuiamo.":S.natale==="Sì"?"Dal 24 dicembre al 6 gennaio ogni giorno ha 4 ore di studio: B2B, buona parte di Luxury e il ripasso di Trade Marketing ed Experience Branding.":"Per ora il piano presume la chiusura dal 24 dicembre al 6 gennaio. Quando lo sai, segnalo qui."}</p></div>`;
-  h+=tesiCard()+stageCard();
+  let h=`<h2 style="display:none">Il piano in 16 settimane</h2><p class="muted small" style="margin-top:10px">Capitoli da chiudere nel gioco entro la domenica di ogni settimana, esami e finestre di ripasso.</p>`;
   for(let w=1;w<=16;w++){
     const lun=lunediDi(w), dom=addDays(lun,6);
     const asc=unita().filter(u=>u.a===w&&!u.l), map=[], lin=unita().filter(u=>u.a===w&&u.l);
@@ -812,7 +812,7 @@ function vPiano(){
 }
 
 function vMaterie(){
-  let h=`<div class="row" style="justify-content:space-between;margin-top:28px"><h2 style="margin:0">Materie e materiali</h2><button class="btn ghost" data-v="metodo">Metodo di studio</button></div><div class="legend">${FASI.map((f,i)=>`<span style="--lc:color-mix(in srgb,var(--accent) ${25*(i+1)}%,transparent)">${f.k} ${f.nome}</span>`).join("")}</div><div class="stack" style="margin-top:12px">`;
+  let h=`<div class="row" style="justify-content:space-between;margin-top:28px"><h2 style="margin:0">Materie e materiali</h2></div><div class="legend">${FASI.map((f,i)=>`<span style="--lc:color-mix(in srgb,var(--accent) ${25*(i+1)}%,transparent)">${f.k} ${f.nome}</span>`).join("")}</div><div class="stack" style="margin-top:12px">`;
   for(const m of MATERIE){
     const us=unita().filter(u=>u.s===m.id), pp=us.reduce((a,u)=>a+(u.p||0),0);
     const cnt=[1,2,3,4].map(k=>us.filter(u=>fase(u)>=k).length);
@@ -823,7 +823,7 @@ function vMaterie(){
       <div class="bar">${us.length?`<i style="width:${pct}%;background:var(--sc)"></i>`:""}</div>
       ${window.WA_VERCEL?`<div class="row" style="margin-top:10px"><a class="btn sm" href="${GIOCHI[m.id]}" target="_blank" rel="noopener">Apri il gioco</a>${m.id==="tm"?`<a class="btn ghost sm" href="mappe-dl.html" target="_blank" rel="noopener">Digital Loyalty</a>`:""}</div>`:""}
       <p class="small muted" style="margin-top:6px">Esame ${fmtD(m.esame)} ${m.ora} · se va male: ${fmtD(m.bis)}${m.bis>"2027-07-01"?" (dopo la laurea di luglio)":""}</p>
-      ${m.lingua?"":`<p style="margin-top:8px"><button class="btn ghost" data-slmat="${m.id}">Slide e dispensa${lezioni.filter(l=>l.materia===m.id).length?` (${lezioni.filter(l=>l.materia===m.id).length})`:""}</button></p>`}
+      <div class="tools"><button class="btn ghost sm" data-aiuto="${m.id}">Assistente</button>${m.lingua?"":`<button class="btn ghost sm" data-slmat="${m.id}">Slide${lezioni.filter(l=>l.materia===m.id).length?` (${lezioni.filter(l=>l.materia===m.id).length})`:""}</button>`}</div>
       ${!us.length?"":m.lingua?`<p class="small muted num" style="margin-top:6px">Fatti ${cnt[0]}/${us.length} · Ripassati ${cnt[1]}/${us.length}</p>`:`<p class="small muted num" style="margin-top:6px">Fatti nel gioco ${cnt[0]}/${us.length} · in ripasso ${us.filter(u=>S.rip?.[u.id]).length}</p>`}</summary>
       ${m.id==="fr"?esameFr():m.id==="en"?esameEn():""}
       <div style="margin-top:8px">${us.map(unitRow).join("")||`<p class="small muted">Quando hai la lista, aggiungila qui sotto.</p>`}</div>
@@ -972,11 +972,11 @@ const AZIONI={
   semplice:{lab:"Spiegamelo semplice",tier:"default",p:`Spiegami il materiale come in un podcast di 3 minuti, in italiano parlato, frasi brevi, senza elenchi puntati, perché lo ascolterò con la sintesi vocale. Comincia dal "perché conta", poi i 3–4 concetti chiave con un esempio ciascuno, poi un riassunto in due frasi.`},
 };
 function vAiuto(){
-  const pal=S.palazzi.map(p=>`<option value="${p.id}" ${S.palMat?.[MATERIE[0].id]===p.id?"selected":""}>${esc(p.nome)}</option>`).join("");
+  const pal=S.palazzi.map(p=>`<option value="${p.id}" ${S.palMat?.[aiMat]===p.id?"selected":""}>${esc(p.nome)}</option>`).join("");
   return `${segStudio("aiuto")}<h2>Assistente di studio</h2>
   <p class="muted small">Incolla un pezzo di capitolo (o fotografa una pagina) e scegli cosa ti serve. Lavora solo sul testo che gli dai: se il testo non basta, te lo dice.</p>
   <div class="stack" style="margin-top:12px">
-    <label class="f">Materia<select id="ai-mat">${MATERIE.map(m=>`<option value="${m.id}">${esc(m.nome)}</option>`).join("")}</select></label>
+    <label class="f">Materia<select id="ai-mat">${MATERIE.map(m=>`<option value="${m.id}" ${m.id===aiMat?"selected":""}>${esc(m.nome)}</option>`).join("")}</select></label>
     <label class="f">Testo<textarea id="ai-txt" placeholder="Incolla qui il testo del capitolo, o i tuoi appunti"></textarea></label>
     <div id="ai-imgbox" hidden><label class="f">Oppure foto delle pagine<input type="file" id="ai-img" accept="image/*" multiple></label></div>
     <label class="f">Palazzo (per «Immagini per il palazzo»)<select id="ai-pal">${pal}</select></label>
@@ -1042,11 +1042,11 @@ function vCasa(){
   const w=Math.max(settimana(OGGI),0), lun=w?lunediDi(w):addDays(W1,-7), wk="w"+w;
   const giorni=[...Array(7)].map((_,i)=>addDays(lun,i));
   const nGym=giorni.filter(g=>S.palestra[g]).length;
-  let h=`<h2>Palestra</h2><div class="card"><div class="row" style="justify-content:space-between"><b class="num">${nGym} di ${S.palestraTarget} questa settimana</b>
-    <label class="small muted row" style="gap:6px">Obiettivo <input type="number" id="gym-t" min="1" max="7" value="${S.palestraTarget}" style="width:70px"></label></div>
-    <div class="gymdays">${giorni.map(g=>`<button class="tick" data-gym="${g}" aria-pressed="${!!S.palestra[g]}" aria-label="Palestra ${fmtLong(g)}">${GIORNI[parse(g).getDay()].slice(0,2)}</button>`).join("")}</div>
-    <p class="small muted" style="margin-top:8px">Mattina presto, così la sera resta per lo studio. Ogni allenamento è un'ora di ascolto.</p></div>`;
-  h+=`<h2>Palazzi della memoria</h2><p class="small muted">Un luogo che conosci a memoria, percorso sempre nello stesso ordine. Quando un blocco arriva a P, prende le prossime tappe libere del palazzo della sua materia.</p>
+  let h=`<h2>Impostazioni</h2>`;
+  h+=`<div class="card" style="margin-top:12px"><b>Natale:</b> <span class="small">l'azienda chiude?</span>
+    <div class="row" style="margin-top:6px">${["Sì","No","?"].map(v=>`<button class="btn ${S.natale===v?"":"ghost"}" data-natale="${v}">${v==="?"?"Non so ancora":v}</button>`).join("")}</div>
+    <p class="small muted" style="margin-top:6px">${S.natale==="No"?"Allora restano solo i festivi (8, 25, 26 dicembre, 1 e 6 gennaio): il piano si appoggia sui weekend. Dimmelo e lo ridistribuiamo.":S.natale==="Sì"?"Dal 24 dicembre al 6 gennaio ogni giorno ha 4 ore di studio: B2B, buona parte di Luxury e il ripasso di Trade Marketing ed Experience Branding.":"Per ora il piano presume la chiusura dal 24 dicembre al 6 gennaio. Quando lo sai, segnalo qui."}</p></div>`;
+  h+=`<h2>Palazzi della memoria</h2><p class="small muted">Facoltativi: li usa l'Assistente per «Immagini per il palazzo».</p>
   <div class="card stack" style="margin-top:10px"><b>Palazzo per materia</b>${MATERIE.map(m=>`<label class="f" style="flex-direction:row;align-items:center;justify-content:space-between;gap:10px"><span style="${sc(m.id)};color:var(--ink)"><span class="dot"></span>${esc(m.breve)}</span><select id="palmat-${m.id}" data-palmat="${m.id}" style="max-width:62%"><option value="">—</option>${S.palazzi.map(p=>`<option value="${p.id}" ${S.palMat?.[m.id]===p.id?"selected":""}>${esc(p.nome)}</option>`).join("")}</select></label>`).join("")}</div>
   <div class="stack" style="margin-top:10px">`;
   S.palazzi.forEach((p,i)=>{const usato=MATERIE.filter(m=>S.palMat?.[m.id]===p.id).map(m=>m.breve), occ=prossimaTappa(p.id)-1;
@@ -1067,7 +1067,8 @@ function vCasa(){
 // Claude le legge a gruppi e poi unisce tutto in una lezione ordinata. Si salvano solo gli appunti, non i file.
 const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
 let lezioni=[], slMateria="lux", slLavoro=null, slCtl=null, slElimina=null, slAperta=null, slIndice={};
-function segStudio(v){return `<div class="seg" role="group" aria-label="Strumenti di studio"><button data-v="slide" aria-pressed="${v==="slide"}">Slide → dispensa</button><button data-v="aiuto" aria-pressed="${v==="aiuto"}">Testo libero</button></div>`}
+let aiMat="tm";
+function segStudio(v){return `<button class="btn ghost sm back" data-v="materie">‹ Materie</button><div class="seg" role="group" aria-label="Strumenti di studio"><button data-v="slide" aria-pressed="${v==="slide"}">Slide → dispensa</button><button data-v="aiuto" aria-pressed="${v==="aiuto"}">Testo libero</button></div>`}
 function carScript(src){return new Promise((ok,ko)=>{const s=document.createElement("script");s.src=src;s.onload=ok;s.onerror=()=>ko(new Error("script"));document.head.appendChild(s)})}
 async function pdfjs(){ if(window.pdfjsLib) return window.pdfjsLib;
   await carScript(PDFJS+"pdf.worker.min.js"); await carScript(PDFJS+"pdf.min.js"); return window.pdfjsLib }
@@ -1254,8 +1255,8 @@ function caselle(){
 }
 const MEDAGLIE=[
   ["Primo passo","Il primo blocco spuntato",c=>c.giorni>=1],
-  ["Prima mappa","Una mappa completata",c=>c.mappe>=1],
-  ["Architetta del palazzo","10 blocchi fissati nel palazzo",c=>c.palazzo>=10],
+  ["Primo capitolo","Un capitolo chiuso nel gioco",c=>c.mappe>=1],
+  ["Dieci capitoli","10 capitoli chiusi nei giochi",c=>c.palazzo>=10],
   ["Una settimana di fila","7 giorni consecutivi",c=>c.serie>=7],
   ["Inarrestabile","21 giorni consecutivi",c=>c.serie>=21],
   ["Atleta","Obiettivo palestra raggiunto in una settimana",c=>c.gymWeek],
@@ -1271,7 +1272,7 @@ const MEDAGLIE=[
 function contesto(){
   const C=caselle(), fatte=C.filter((c,i)=>i>0&&c.k!=="laurea"&&c.done).length, attese=C.filter((c,i)=>i>0&&c.k!=="laurea"&&c.due<OGGI).length;
   const gymWeek=[...Array(Math.max(settimana(OGGI),1))].some((_,i)=>{const l=lunediDi(i+1);return [...Array(7)].filter((_,j)=>S.palestra?.[addDays(l,j)]).length>=S.palestraTarget});
-  return {C,fatte,attese,avanti:fatte-attese,giorni:giorniFatti().length,mappe:unita().filter(u=>!u.l&&fase(u)>=2).length,palazzo:unita().filter(u=>!u.l&&fase(u)>=3).length,
+  return {C,fatte,attese,avanti:fatte-attese,giorni:giorniFatti().length,mappe:unita().filter(u=>!u.l&&fase(u)>=1).length,palazzo:unita().filter(u=>!u.l&&fase(u)>=1).length,
     serie:serie(),gymWeek,faccende:vals(S.casa).reduce((a,w)=>a+vals(w).filter(Boolean).length,0),sei:vals(S.dadi).includes(6),superati:Object.keys(S.superati||{}).length};
 }
 let selCasella=null; var prevXp=null, prevLiv=null;
@@ -1310,13 +1311,18 @@ function vPercorso(){
   h+=`</div>`;
   if(selCasella!==null && C[selCasella]) h+=schedaCasella(C[selCasella]);
   const oggiOk=vals(S.fatti?.[OGGI]).some(Boolean), dado=S.dadi?.[OGGI];
+  h+=`<h2>Esami</h2><div class="strip" aria-label="Calendario esami">${renderTesta.strip||""}</div>`;
+  const tp=TESI.find(t=>!S.tesi?.[t.id]);
+  h+=`<details class="fold"><summary><span>Tesi</span><span class="cnt num">${TESI.filter(t=>S.tesi?.[t.id]).length}/${TESI.length}</span></summary>${tesiCard()}</details>`;
+  h+=`<details class="fold"><summary><span>Stage</span><span class="cnt num">fine ${fmtD(fineStage())}</span></summary>${stageCard()}</details>`;
+  h+=`<details class="fold"><summary><span>Calendario per settimana</span><span class="cnt num">sett. ${Math.max(settimana(OGGI),1)}</span></summary>${vPiano()}</details>`;
   h+=`<h2>Il dado del giorno</h2><div class="card row" style="flex-wrap:nowrap;gap:14px"><button class="die num" id="dado" ${dado||!oggiOk?"disabled":""} aria-label="Tira il dado">${dado||"?"}</button>
     <p class="small">${dado?`Oggi hai tirato ${dado}: +${dado*5} XP. Il prossimo tiro domani.`:oggiOk?"Hai chiuso almeno un blocco oggi: tira il dado per un bonus da 5 a 30 XP.":"Si sblocca quando spunti il primo blocco di oggi nella scheda Oggi."}</p></div>`;
   const on=MEDAGLIE.filter(m=>m[2](K)).length;
-  h+=`<h2>Medaglie · ${on}/${MEDAGLIE.length}</h2><div class="badges">${MEDAGLIE.map(([t,d,f])=>`<div class="badge ${f(K)?"on":""}"><b>${esc(t)}</b><span class="small muted">${esc(d)}</span></div>`).join("")}</div>
-  <h2>Come si fanno punti</h2><div class="card small stack">
-    <p>Blocco della giornata <b>+10</b> · fase di un blocco di studio <b>+15</b> · tappa della tesi <b>+50</b> · tappa dello stage <b>+30</b> · esame superato <b>+200</b> · palestra <b>+10</b> · dado <b>+5 per punto</b> · ripasso <b>+5</b></p>
-    <p class="muted">Livelli: ${TITOLI.map(t=>`${t[0]} ${t[1]}`).join(" · ")}</p></div>`;
+  h+=`<details class="fold"><summary><span>Medaglie</span><span class="cnt num">${on}/${MEDAGLIE.length}</span></summary><div class="badges" style="margin-top:12px">${MEDAGLIE.map(([t,d,f])=>`<div class="badge ${f(K)?"on":""}"><b>${esc(t)}</b><span class="small muted">${esc(d)}</span></div>`).join("")}</div>
+  </details><details class="fold"><summary><span>Come si fanno punti</span></summary><div class="card small stack" style="margin-top:12px">
+    <p>Blocco della giornata <b>+10</b> · capitolo chiuso nel gioco <b>+15</b> · tappa della tesi <b>+50</b> · tappa dello stage <b>+30</b> · esame superato <b>+200</b> · palestra <b>+10</b> · dado <b>+5 per punto</b> · ripasso <b>+5</b></p>
+    <p class="muted">Livelli: ${TITOLI.map(t=>`${t[0]} ${t[1]}`).join(" · ")}</p></div></details>`;
   return h;
 }
 function schedaCasella(c){
@@ -1345,6 +1351,7 @@ document.addEventListener("click",async e=>{
   const t=e.target.closest("button"); if(!t) return;
   const d=t.dataset;
   if(d.v){vista=d.v; giornoVisto=OGGI; try{history.replaceState(null,"","#"+vista)}catch(_){}; render(); scrollTo(0,0); return}
+  if(d.aiuto){aiMat=d.aiuto; vista="aiuto"; try{history.replaceState(null,"","#aiuto")}catch(_){} render(); scrollTo(0,0); return}
   if(d.slmat){slMateria=d.slmat; slAperta=null; if(vista!=="slide"){vista="slide"; try{history.replaceState(null,"","#slide")}catch(_){}} render(); return}
   if(d.sldel0){slElimina=d.sldel0; slAperta=d.sldel0; render(); return}
   if(d.sldel){await eliminaLezione(d.sldel); slElimina=null; render(); toast("Lezione eliminata"); return}
@@ -1410,7 +1417,7 @@ document.addEventListener("change",e=>{
   if(t.dataset.palmat){const m=t.dataset.palmat; if(t.value) S.palMat[m]=t.value; else delete S.palMat[m];
     for(const u of unita()) if(u.s===m && S.tappe?.[u.id] && S.tappe[u.id].pid!==t.value) delete S.tappe[u.id];
     avviaPalazzi(); salva(); render()}
-  if(t.id==="ai-mat"){const sel=document.getElementById("ai-pal"); if(sel&&S.palMat?.[t.value]) sel.value=S.palMat[t.value]}
+  if(t.id==="ai-mat"){aiMat=t.value;const sel=document.getElementById("ai-pal"); if(sel&&S.palMat?.[t.value]) sel.value=S.palMat[t.value]}
   if(t.dataset.paln){S.palazzi[+t.dataset.paln].nome=t.value.trim()||"Palazzo"; salva()}
   if(t.dataset.pall){S.palazzi[+t.dataset.pall].loci=t.value.split("\n").map(x=>x.trim()).filter(Boolean); salva()}
   if(t.id==="note"){S.note=t.value; salva()}
