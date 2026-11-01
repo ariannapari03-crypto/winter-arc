@@ -412,6 +412,9 @@ nav.bot button{font-size:.88rem;letter-spacing:.06em;padding-inline:0}
 .trail svg{display:block;width:100%;height:auto}
 .trail .nd{cursor:pointer;outline:none}
 .trail .nd:focus-visible circle:nth-child(3){stroke:var(--ink)}
+.trail .mese{fill:var(--ink);font:800 11px var(--f-display);letter-spacing:.16em}
+.trail .ldt{fill:var(--muted);opacity:.7}
+@media (prefers-reduced-motion:no-preference){.trail .bob{animation:respiro 2.4s ease-in-out infinite}@keyframes respiro{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}}
 .trail .lsm{fill:var(--muted);font:500 10px var(--f-body)}
 .trail .lbig{fill:var(--ink);font:800 12px var(--f-display);letter-spacing:.04em}
 canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:21}
@@ -556,11 +559,29 @@ const PIANO_NOV={gtm1:3,gtm2:3,gtm3:3,gtm4:3, gtm5:4,dl1:4,dl2:4,dl3:4, dl4:5,dl
   fx4:11,fx5:11,fx6:11,fx7:11,fx8:11,fx9:11,lx1:11,lx2:11,lx3:11,e3:11,e4:11,e5:11,e6:11,
   fx10:13,fx11:13,fx12:13,lx4:13, lx5:14,e7:14,e8:14,e9:14,e10:14,e11:14,e12:14,e13:14};
 UNITA_BASE.forEach(u=>{if(PIANO_NOV[u.id]) u.a=PIANO_NOV[u.id]});
+// Experience Branding, B2B e Luxury: i capitoli sono quelli dei giochi (stesso id), così l'avanzamento passa da solo.
+const GIOCHI_CAP={"eb": ["experience-branding", [["c1", "Innovazione nel retail"], ["c2", "Il lusso come modus vivendi"], ["c3", "Quiet luxury"], ["c4", "Autenticità: Bottega Veneta"], ["c5", "Luxury hospitality: Aman e Soneva"], ["c6", "Fine dining: il caso Langosteria"], ["c7", "Nuovi ruoli di venditori e manager nel fashion retail"], ["c8", "Signature experience aumentata"], ["c9", "Customer loyalty: introduzione"], ["c10", "Marketing, quo vadis?"], ["c11", "Oltre gli sconti: loyalty nel retail italiano"], ["c12", "Loyalty a quattro dimensioni"], ["c13", "Il valore strategico delle relazioni"], ["c14", "Omnichannel marketing"], ["c15", "AI e loyalty nel retail"], ["c16", "Touchpoint ed enabler della digital loyalty"], ["c17", "Fattori critici nell'implementazione dell'AI"], ["c18", "Casi di successo nell'AI"], ["c19", "Trasformazione digitale del go-to-market"]]], "b2b": ["b2b-marketing", [["c1", "Holcim Italia: segmentazione e targeting"], ["c2", "Schneider Electric: global account management"], ["c3", "Hilti Fleet Management"], ["c4", "Kimura K.K.: si può salvare il cliente?"], ["c5", "Ajanta Packaging: key account management"], ["l01", "Organizational buying behavior"], ["l02", "Segmentare il mercato business"], ["l03", "Gestire i prodotti nei mercati business"], ["l04", "The truth about customer solutions"], ["l05", "Going beyond the product"], ["l06", "Rethinking customer solutions"], ["l07", "Making solutions the answer"], ["l08", "Customer solutions: from pilots to profits"], ["l09", "Shrinking core, expanding periphery"], ["l10", "Project marketing e discontinuità"], ["l11", "Creating value by delivering integrated solutions"], ["l12", "Vantaggio competitivo nel project business"], ["l13", "The project marketing logic"], ["l14", "Il ruolo degli utenti nell'innovazione"], ["l15", "Il metodo lead user"], ["l16", "Creating breakthroughs at 3M"], ["l17", "Lead users nell'home banking"], ["l18", "Rethinking distribution"], ["l19", "Make your dealers your partners"], ["l20", "The power of trust"]]], "lux": ["luxury-companies", [["r1", "I fondamentali del lusso"], ["r2", "I paradossi strategici"], ["r3", "Vecchi mondi e nuovi mondi"], ["r4", "Il valore del paese d'origine"], ["r5", "La diffusione internazionale"], ["r6", "Innovazione, creatività e portafoglio"], ["r7", "La sostenibilità nel lusso"], ["r8", "Nuovi modelli di business"], ["f0", "Introduzione: Experience-Led Strategy"], ["f1", "L'alchimia del lusso"], ["f2", "(Un)setting the boundaries"], ["p1", "Strategy is choice"], ["p3", "Where to play"], ["v", "Design, significati e innovazione radicale"], ["k1", "Ferrari: esclusività e resilienza"], ["k2", "Gucci 25.0"], ["k3", "Bottega Veneta: valore prima dei volumi"], ["k4", "Kering: valore dalle acquisizioni"], ["k5", "Zegna: tradizione e innovazione"], ["k6", "Alo: oltre l'activewear"], ["b1", "Bain-Altagamma, primavera 2026"], ["b2", "BCG x Altagamma, True-Luxury 2026"]]]};
+for(let i=UNITA_BASE.length-1;i>=0;i--) if(GIOCHI_CAP[UNITA_BASE[i].s]) UNITA_BASE.splice(i,1);
+for(const [m,[,caps]] of Object.entries(GIOCHI_CAP)) caps.forEach(([gid,t])=>UNITA_BASE.push({id:m+"-"+gid,s:m,gid,t,p:null,fmt:"gioco"}));
+(function pianifica(){ // riempie i weekend in ordine, senza superare la settimana prima dell'esame
+  const CAP={3:5,4:5,5:5,6:5,7:5,8:5,9:4,10:16,11:16,12:4,13:7,14:7,15:3}, uso={};
+  UNITA_BASE.filter(u=>u.a&&!u.gid).forEach(u=>uso[u.a]=(uso[u.a]||0)+(u.l?.5:1));
+  const DA={eb:5,b2b:6,lux:9}, FINO={eb:12,b2b:13,lux:15};
+  for(const m of ["eb","b2b","lux"]){ let w=DA[m];
+    for(const u of UNITA_BASE.filter(x=>x.s===m&&x.gid)){ while(w<FINO[m]&&(uso[w]||0)>=(CAP[w]||0)) w++; u.a=w; uso[w]=(uso[w]||0)+1 } }
+})();
+function padronanza(u){ if(!u.gid) return null; try{return JSON.parse(localStorage.getItem(GIOCHI_CAP[u.s][0])||"null")?.capitoli?.[u.gid]??null}catch(e){return null} }
+function applicaGiochi(){ let c=false;
+  for(const u of UNITA_BASE) if(u.gid && (padronanza(u)||0)>=80 && (S.fasi[u.id]||0)<1){S.fasi[u.id]=1; c=true}
+  return c }
+addEventListener("storage",e=>{if(Object.values(GIOCHI_CAP).some(g=>g[0]===e.key)) render()});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible") render()});
 const GIOCHI={tm:"mappe-gtm.html",eb:"experience-branding.html",b2b:"b2b-marketing.html",lux:"luxury-companies.html",fr:"francese-b1.html",en:"inglese-c1.html"};
 const giocoDi=u=>!window.WA_VERCEL?"":u.id.startsWith("dl")?"mappe-dl.html":GIOCHI[u.s]||"";
 // Titolo corto per i blocchi della giornata: capitoli veri dove i giochi li hanno, senza autori e pagine.
 function titoloBreve(u){
   const cap=(B,id)=>{const c=B[id]; return c.length>1?`cap. ${c[0]}–${c[c.length-1]}`:`cap. ${c[0]}`};
+  if(u.gid) return materia(u.s).breve+" · "+u.t;
   if(typeof GTM_BLOCCHI!=="undefined"&&GTM_BLOCCHI[u.id]) return "Go to Market · "+cap(GTM_BLOCCHI,u.id);
   if(typeof DL_BLOCCHI!=="undefined"&&DL_BLOCCHI[u.id]) return "Digital Loyalty · "+cap(DL_BLOCCHI,u.id);
   return u.t.replace(/\s*\([^)]*\)/g,"").replace(/\s*·\s*≈\s*pp\.[^·]*$/,"").replace(/^Luxury CX · /,"Luxury · ");
@@ -942,7 +963,7 @@ function prepCard(){
 function unitRow(u){
   const f=fase(u), late=inRitardo(u,settimana(OGGI));
   return `<div class="unit" style="${sc(u.s)}"><div style="min-width:0"><div><span class="dot"></span>${esc(u.t)}</div>
-    <div class="meta">${u.p?u.p+" pp · ":""}${esc(u.fmt)}${u.a?` · entro ${fmtD(addDays(lunediDi(u.a),6))}`:""}${late?' · <span class="late">in ritardo</span>':""}</div>${S.tappe?.[u.id]?`<div class="meta">${tappeTesto(u)}</div>`:""}</div>
+    <div class="meta">${u.p?u.p+" pp · ":""}${esc(u.fmt)}${u.a?` · entro ${fmtD(addDays(lunediDi(u.a),6))}`:""}${u.gid?` · padronanza ${padronanza(u)??0}%`:""}${late?' · <span class="late">in ritardo</span>':""}</div>${S.tappe?.[u.id]?`<div class="meta">${tappeTesto(u)}</div>`:""}</div>
     <div class="phases">${fasiDi(u).map((x,i)=>`<button class="ph ${f>i?"on":""}" data-u="${u.id}" data-f="${i+1}" aria-label="${x.nome}" title="${x.nome}">${x.k}</button>`).join("")}</div></div>`;
 }
 
@@ -1457,29 +1478,58 @@ function coriandoli(){
 }
 /* Sentiero stile MyTrakz: si sale a curve dalla partenza (in basso) alla laurea (in cima). */
 function sentiero(C,pawn,ghost){
-  const n=C.length, W=360, STEP=46, TOP=330, BOT=70, H=TOP+(n-1)*STEP+BOT;
+  const n=C.length, W=360, STEP=42, TOP=330, BOT=70, H=TOP+(n-1)*STEP+BOT;
   const X=i=>W/2+112*Math.sin(i*0.5), Y=i=>H-BOT-i*STEP;
   const tratto=(a,b)=>{let d=""; for(let t=a;t<=b+1e-9;t+=0.1) d+=(d?"L":"M")+X(t).toFixed(1)+" "+Y(t).toFixed(1); return d};
   const ultimo=n-1, colore=c=>c.s?`var(${materia(c.s)?.col||"--accent"})`:c.k==="stage"?"var(--muted)":"var(--accent)";
-  const data=c=>c.k==="laurea"?"luglio 2027":c.k==="esame"?"esame "+fmtD(c.due):c.k==="start"?fmtD(c.due):"entro "+fmtD(c.due);
+  const data=c=>c.k==="laurea"?"luglio 2027":c.k==="esame"?fmtD(c.due):fmtD(c.due);
+  const corto=(t,n=26)=>t.length>n?t.slice(0,n-1).trimEnd()+"…":t;
+  const nome=c=>c.k==="esame"?"ESAME "+materia(c.s).breve.toUpperCase():c.k==="start"?"Partenza":corto(c.u?titoloBreve(c.u):c.k==="iscr"?"Iscrizione "+materia(c.s).breve:c.t);
+  // stagioni: fasce per mese, nome del mese, alberi che cambiano dall'inverno all'estate
+  const MESI_L=["GENNAIO","FEBBRAIO","MARZO","APRILE","MAGGIO","GIUGNO","LUGLIO","AGOSTO","SETTEMBRE","OTTOBRE","NOVEMBRE","DICEMBRE"];
+  const stag=m=>[11,0,1].includes(m)||m===10||m===9?"inv":m<=4?"pri":"est";
+  const tinta={inv:"var(--accent)",pri:"var(--c-b2b)",est:"var(--gold)"};
+  const pinoN=(x,y,k=1)=>`<path d="M${x} ${y-26*k} L${x+11*k} ${y} L${x-11*k} ${y} Z" style="fill:var(--line)"/><path d="M${x} ${y-26*k} L${x+5*k} ${y-15*k} L${x-5*k} ${y-15*k} Z" style="fill:var(--ink);opacity:.8"/>`;
+  const fiore=(x,y)=>`<rect x="${x-1.5}" y="${y-12}" width="3" height="12" style="fill:var(--line)"/><circle cx="${x}" cy="${y-18}" r="10" style="fill:var(--c-b2b);opacity:.55"/><circle cx="${x-4}" cy="${y-20}" r="2" style="fill:var(--c-eb)"/><circle cx="${x+4}" cy="${y-16}" r="2" style="fill:var(--c-eb)"/><circle cx="${x+1}" cy="${y-24}" r="2" style="fill:var(--ink);opacity:.7"/>`;
+  const albEst=(x,y)=>`<rect x="${x-1.5}" y="${y-12}" width="3" height="12" style="fill:var(--line)"/><circle cx="${x}" cy="${y-19}" r="11" style="fill:var(--c-b2b);opacity:.75"/>`;
+  const natale=(x,y)=>`${pinoN(x,y,1.7)}<circle cx="${x}" cy="${y-46}" r="4" style="fill:var(--gold)"/><circle cx="${x-7}" cy="${y-28}" r="2" style="fill:var(--gold)"/><circle cx="${x-5}" cy="${y-12}" r="2" style="fill:var(--c-eb)"/><circle cx="${x+4}" cy="${y-20}" r="2" style="fill:var(--gold)"/><circle cx="${x+6}" cy="${y-8}" r="2" style="fill:var(--accent)"/>`;
+  let deco="", fasce="", meseCorr=-1, inizio=Y(0)+STEP/2;
+  for(let i=1;i<ultimo;i++){const m=parse(C[i].due).getMonth();
+    if(m!==meseCorr){ if(meseCorr>=0) fasce+=`<rect x="0" y="${Y(i)+STEP/2}" width="${W}" height="${inizio-(Y(i)+STEP/2)}" style="fill:${tinta[stag(meseCorr)]};opacity:${(meseCorr%2)?.035:.065}"/>`;
+      const sx=X(i)>W/2?14:W-14-86, sy=Y(i)+STEP/2-30;
+      deco+=`<g><rect x="${sx}" y="${sy}" width="86" height="22" rx="4" style="fill:var(--surface);stroke:var(--line)"/><line x1="${sx+43}" y1="${sy+22}" x2="${sx+43}" y2="${sy+34}" style="stroke:var(--line);stroke-width:2"/><text x="${sx+43}" y="${sy+15.5}" text-anchor="middle" class="mese">${MESI_L[m]}</text></g>`;
+      meseCorr=m; inizio=Y(i)+STEP/2 }
+    const lato=X(i)>W/2?Math.max(22,X(i)-150):Math.min(W-22,X(i)+150), y=Y(i)+12, st=stag(m);
+    if(C[i].k==="esame") continue;
+    if(m!==parse(C[i-1].due).getMonth()) continue; // niente alberi dove c'è il cartello del mese
+    const lx=X(i)>W/2?W-16-(i*17)%26:16+(i*13)%26, k=.75+((i*7)%5)/10; // dalla parte opposta alle scritte
+    if(m===11&&parse(C[i].due).getDate()>=20&&!deco.includes('class="natale"')) deco+=`<g class="natale">${natale(lx,y)}</g>`.replace(/,1\.3\)/,"");
+    else deco+= st==="inv"?pinoN(lx,y,k)+(i%2?pinoN(lx+(lx<W/2?14:-14),y+4,k*.7):""):st==="pri"?fiore(lx,y):albEst(lx,y);
+    if(st==="inv"&&i%4===1) deco+=`<ellipse cx="${lx+(lx<W/2?22:-22)}" cy="${y+3}" rx="18" ry="5" style="fill:var(--ink);opacity:.12"/>`;
+    if(st==="inv"&&i%2===0) deco+=`<circle cx="${(i*97)%W}" cy="${Y(i)-14}" r="1.6" style="fill:var(--ink);opacity:.45"/><circle cx="${(i*53+40)%W}" cy="${Y(i)+6}" r="1.2" style="fill:var(--ink);opacity:.35"/>`;
+  }
+  fasce+=`<rect x="0" y="330" width="${W}" height="${Math.max(0,inizio-330)}" style="fill:${tinta[stag(meseCorr)]};opacity:.05"/>`;
+  // sole d'estate vicino alla laurea
+  deco+=`<circle cx="${W-46}" cy="${Y(ultimo-1)-30}" r="16" style="fill:var(--gold);opacity:.85"/>${[0,45,90,135,180,225,270,315].map(a=>{const r=a*Math.PI/180;return `<line x1="${W-46+22*Math.cos(r)}" y1="${Y(ultimo-1)-30+22*Math.sin(r)}" x2="${W-46+28*Math.cos(r)}" y2="${Y(ultimo-1)-30+28*Math.sin(r)}" style="stroke:var(--gold);stroke-width:2;stroke-linecap:round;opacity:.85"/>`}).join("")}`;
   let g="";
   for(let i=0;i<ultimo;i++){const c=C[i], x=X(i), y=Y(i), big=c.k==="esame", r=big?12:c.k==="start"?10:7.5, dx=x>W/2?-1:1;
     g+=`<g class="nd" data-cas="${i}" tabindex="0" role="button" aria-label="${esc(c.t)}">
       <circle cx="${x}" cy="${y}" r="${r+8}" style="fill:transparent"/>
       ${i===ghost&&ghost!==pawn?`<circle cx="${x}" cy="${y}" r="${r+6}" style="fill:none;stroke:var(--ink);stroke-width:1.5;stroke-dasharray:3 3"/>`:""}
       <circle cx="${x}" cy="${y}" r="${r}" style="fill:${c.done?colore(c):"var(--bg)"};stroke:${colore(c)};stroke-width:${big?3:2.5}"/>
+      ${big?`<line x1="${x}" y1="${y-r}" x2="${x}" y2="${y-r-24}" style="stroke:var(--ink);stroke-width:1.5"/><path d="M${x} ${y-r-24} L${x+18} ${y-r-19} L${x} ${y-r-13} Z" style="fill:${colore(c)}"/>`:""}
       ${selCasella===i?`<circle cx="${x}" cy="${y}" r="${r+4}" style="fill:none;stroke:var(--accent);stroke-width:2"/>`:""}
-      <text x="${x+dx*(r+9)}" y="${y+4}" text-anchor="${dx<0?"end":"start"}" class="${big?"lbig":"lsm"}">${esc(big?"ESAME "+materia(c.s).breve.toUpperCase():c.lb)} · ${esc(data(c))}${i===ghost&&ghost!==pawn?" · OGGI":""}</text></g>`}
+      <text x="${x+dx*(r+9)}" y="${y+4}" text-anchor="${dx<0?"end":"start"}" class="${big?"lbig":"lsm"}">${esc(nome(c))} <tspan class="ldt">${esc(data(c))}${i===ghost&&ghost!==pawn?" · OGGI":""}</tspan></text></g>`}
   // la persona sul sentiero: dove sei arrivata
   const ax=X(pawn), ay=Y(pawn);
-  const avatar=`<g id="avatar" transform="translate(${ax+(ax>W/2?28:-28)} ${ay-6})">
+  const avatar=`<g id="avatar" transform="translate(${ax+(ax>W/2?28:-28)} ${ay-6})"><g class="bob">
     <ellipse cx="0" cy="34" rx="14" ry="3" style="fill:var(--ink);opacity:.18"/>
     <rect x="-6" y="18" width="5" height="15" rx="2" style="fill:var(--ink)"/><rect x="1" y="18" width="5" height="15" rx="2" style="fill:var(--ink)"/>
     <path d="M-11 20 Q-11 2 0 2 Q11 2 11 20 Z" style="fill:var(--accent)"/>
     <path d="M-8 4 L8 4 L6 9 L-6 9 Z" style="fill:var(--gold)"/>
     <circle cx="0" cy="-7" r="9" style="fill:var(--sand-ink)"/>
     <path d="M-9 -9 Q0 -22 9 -9 Z" style="fill:var(--gold)"/><circle cx="0" cy="-19" r="2.6" style="fill:var(--gold)"/>
-    <text x="0" y="16" text-anchor="middle" style="fill:var(--accent-ink);font:800 9px var(--f-display)">W</text></g>`;
+    <text x="0" y="16" text-anchor="middle" style="fill:var(--accent-ink);font:800 9px var(--f-display)">W</text></g></g>`;
   // in cima: l'università con la bandiera della laurea, colline innevate e pini
   const pino=(x,y,s)=>`<path d="M${x} ${y-34*s} L${x+15*s} ${y} L${x-15*s} ${y} Z" style="fill:var(--line)"/><path d="M${x} ${y-34*s} L${x+6*s} ${y-20*s} L${x-6*s} ${y-20*s} Z" style="fill:var(--ink);opacity:.85"/>`;
   const stelle=[...Array(26)].map((_,k)=>`<circle cx="${(k*137)%W}" cy="${(k*71)%170+8}" r="${k%3?0.9:1.5}" style="fill:var(--ink);opacity:${k%2?.35:.6}"/>`).join("");
@@ -1501,7 +1551,7 @@ function sentiero(C,pawn,ghost){
     </g>`;
   const ultimaY=Y(ultimo);
   return `<div class="trail"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Sentiero fino alla laurea, tappa ${pawn} di ${ultimo}">
-    <rect width="${W}" height="${H}" style="fill:var(--bg)"/><rect width="${W}" height="330" style="fill:var(--glow)"/>${cima}
+    <rect width="${W}" height="${H}" style="fill:var(--bg)"/>${fasce}<rect width="${W}" height="330" style="fill:var(--bg)"/><rect width="${W}" height="330" style="fill:var(--glow)"/>${cima}${deco}
     <path d="${tratto(0,ultimo-1)} L${W/2} ${ultimaY} L${W/2} 262" style="fill:none;stroke:var(--line);stroke-width:7;stroke-linecap:round;stroke-linejoin:round"/>
     <path d="${tratto(0,Math.max(pawn,0))}" style="fill:none;stroke:var(--accent);stroke-width:7;stroke-linecap:round;stroke-linejoin:round"/>
     ${g}${avatar}</svg></div>`;
@@ -1544,7 +1594,7 @@ function schedaCasella(c){
 /* ============ RENDER E EVENTI ============ */
 let sentieroVisto=false;
 function render(){
-  const c0=applicaMappe(), c1=avviaPalazzi(), c2=avviaRip(); if(c0||c1||c2) salva();
+  const c0=applicaMappe(), c3=applicaGiochi(), c1=avviaPalazzi(), c2=avviaRip(); if(c0||c1||c2||c3) salva();
   renderTesta();
   const v=document.getElementById("view");
   renderLvl();
