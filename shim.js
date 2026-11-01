@@ -2,6 +2,7 @@
 // ma i dati restano nel telefono e Claude si chiama tramite /api/claude.
 (function () {
   if (window.claude) return;
+  window.WA_VERCEL = true; // versione su Vercel: i giochi stanno accanto all'app
   const CHIAVE_PW = "winter-arc-password";
   const leggiPw = () => { try { return localStorage.getItem(CHIAVE_PW); } catch (e) { return null; } };
   const password = () => {
